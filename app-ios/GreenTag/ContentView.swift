@@ -93,6 +93,9 @@ struct ContentView: View {
                     arMeasurementStatus = "ARKit measuring"
                 }
                     .ignoresSafeArea()
+
+                ARGuideOverlay(spacingIn: spacingIn)
+                    .ignoresSafeArea()
             }
 
             VStack(alignment: .leading, spacing: 18) {
@@ -310,6 +313,53 @@ struct ContentView: View {
         @unknown default:
             isARSessionVisible = false
         }
+    }
+}
+
+private struct ARGuideOverlay: View {
+    let spacingIn: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            let y = geometry.size.height * 0.50
+            let leftX = geometry.size.width * 0.36
+            let rightX = geometry.size.width * 0.64
+
+            ZStack(alignment: .topLeading) {
+                Path { path in
+                    path.move(to: CGPoint(x: leftX, y: y))
+                    path.addLine(to: CGPoint(x: rightX, y: y))
+                }
+                .stroke(.green, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 6]))
+
+                guidePoint(at: CGPoint(x: leftX, y: y))
+                guidePoint(at: CGPoint(x: rightX, y: y))
+
+                Text(String(format: "%.2f in", spacingIn))
+                    .font(.system(size: 13, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.green, in: Capsule())
+                    .position(x: (leftX + rightX) / 2, y: y - 30)
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func guidePoint(at point: CGPoint) -> some View {
+        ZStack {
+            Circle()
+                .stroke(.green, lineWidth: 3)
+                .frame(width: 34, height: 34)
+
+            Circle()
+                .fill(.green)
+                .frame(width: 8, height: 8)
+        }
+        .position(point)
     }
 }
 
