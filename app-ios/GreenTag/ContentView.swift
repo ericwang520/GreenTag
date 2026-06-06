@@ -56,6 +56,7 @@ struct ContentView: View {
     @State private var cameraAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
     @State private var isPreparingCamera = false
     @State private var isARSessionVisible = false
+    @State private var arMeasurementStatus = "Waiting for AR"
 
     private var observation: FieldObservation {
         FieldObservation(
@@ -86,7 +87,11 @@ struct ContentView: View {
             Color.black.ignoresSafeArea()
 
             if isARSessionVisible {
-                ARInspectionView()
+                ARInspectionView { spacing, confidence in
+                    spacingIn = spacing
+                    self.confidence = confidence
+                    arMeasurementStatus = "ARKit measuring"
+                }
                     .ignoresSafeArea()
             }
 
@@ -95,6 +100,8 @@ struct ContentView: View {
 
                 if !isARSessionVisible {
                     cameraStartPanel
+                } else {
+                    arStatusPanel
                 }
 
                 Spacer()
@@ -184,13 +191,41 @@ struct ContentView: View {
             VStack(spacing: 10) {
                 Slider(value: $spacingIn, in: 12...28, step: 0.25)
                     .tint(.green)
+                    .disabled(isARSessionVisible)
 
                 Slider(value: $confidence, in: 0.3...1, step: 0.01)
                     .tint(.green)
+                    .disabled(isARSessionVisible)
             }
         }
         .padding(16)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var arStatusPanel: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "scope")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.green)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(arMeasurementStatus)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Text("Guide points are fixed until Roboflow chooses lumber centers.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.66))
+            }
+
+            Spacer()
+        }
+        .padding(12)
+        .background(.black.opacity(0.50), in: RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
