@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0C81842FD37FD9FFDB8160C5 /* AgentEventPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */; };
 		470802EA45F3467C68A0D72C /* GreenTagApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */; };
 		7DD19D7EEE3C5DECCC5D0B38 /* ARInspectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5B915A5B9DEF4CA9863A74 /* ARInspectionView.swift */; };
 		8F6325BAD4FA27C562FEAEBE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F77868F5CEF6D329DA949631 /* Assets.xcassets */; };
@@ -19,6 +20,7 @@
 		794C703118F41ABDA5E5C8D5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		CF15FBEB140D18146687346A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		DEB61932B04FC1402EE4950A /* GreenTag.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GreenTag.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentEventPublisher.swift; sourceTree = "<group>"; };
 		F77868F5CEF6D329DA949631 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -26,6 +28,7 @@
 		19B6DDF68EF8C3022100DB7E /* GreenTag */ = {
 			isa = PBXGroup;
 			children = (
+				F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */,
 				6A5B915A5B9DEF4CA9863A74 /* ARInspectionView.swift */,
 				794C703118F41ABDA5E5C8D5 /* ContentView.swift */,
 				2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */,
@@ -119,6 +122,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7DD19D7EEE3C5DECCC5D0B38 /* ARInspectionView.swift in Sources */,
+				0C81842FD37FD9FFDB8160C5 /* AgentEventPublisher.swift in Sources */,
 				B2F3772BD0F7045A344B2816 /* ContentView.swift in Sources */,
 				470802EA45F3467C68A0D72C /* GreenTagApp.swift in Sources */,
 			);

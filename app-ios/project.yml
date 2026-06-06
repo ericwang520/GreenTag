@@ -25,6 +25,9 @@ targets:
       path: GreenTag/Info.plist
       properties:
         NSCameraUsageDescription: GreenTag uses the camera with ARKit to measure framing spacing during inspections.
+        NSLocalNetworkUsageDescription: GreenTag connects to the local hackathon agent during demos.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
         UILaunchScreen:
           UIColorName: LaunchBackground
         UIRequiresFullScreen: true

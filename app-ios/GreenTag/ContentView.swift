@@ -57,6 +57,9 @@ struct ContentView: View {
     @State private var isPreparingCamera = false
     @State private var isARSessionVisible = false
     @State private var arMeasurementStatus = "Waiting for AR"
+    @State private var agentEndpoint = "http://127.0.0.1:8000/events"
+    @State private var publishStatus = "Not sent"
+    @State private var isPublishing = false
 
     private var observation: FieldObservation {
         FieldObservation(
@@ -110,6 +113,7 @@ struct ContentView: View {
                 Spacer()
 
                 measurementPanel
+                agentEndpointPanel
                 agentPayloadPanel
             }
             .padding(18)
@@ -266,6 +270,50 @@ struct ContentView: View {
         )
     }
 
+    private var agentEndpointPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Agent handoff", systemImage: "paperplane.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                Text(publishStatus)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.green)
+            }
+
+            TextField("Agent /events URL", text: $agentEndpoint)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .font(.system(size: 13, weight: .regular, design: .monospaced))
+                .padding(10)
+                .foregroundStyle(.white)
+                .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
+
+            Button {
+                Task {
+                    await publishObservation()
+                }
+            } label: {
+                Label(isPublishing ? "Sending" : "Send Observation", systemImage: "arrow.up.circle.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(isPublishing)
+        }
+        .padding(16)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.10), lineWidth: 1)
+        )
+    }
+
     private var cameraStartTitle: String {
         switch cameraAuthorizationStatus {
         case .authorized:
@@ -312,6 +360,24 @@ struct ContentView: View {
             isARSessionVisible = false
         @unknown default:
             isARSessionVisible = false
+        }
+    }
+
+    @MainActor
+    private func publishObservation() async {
+        guard let url = URL(string: agentEndpoint) else {
+            publishStatus = "Invalid URL"
+            return
+        }
+
+        isPublishing = true
+        defer { isPublishing = false }
+
+        do {
+            let statusCode = try await AgentEventPublisher(endpoint: url).publish(observation)
+            publishStatus = "Sent \(statusCode)"
+        } catch {
+            publishStatus = "Send failed"
         }
     }
 }
