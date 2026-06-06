@@ -6,3 +6,8 @@ node_modules/
 *.pyc
 .DS_Store
 deprecated/
+DerivedData/
+app-ios/DerivedData/
+*.xcuserdata/
+*.xcuserstate
+*.xcresult
