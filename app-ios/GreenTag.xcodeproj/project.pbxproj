@@ -9,8 +9,10 @@
 /* Begin PBXBuildFile section */
 		0C81842FD37FD9FFDB8160C5 /* AgentEventPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */; };
 		470802EA45F3467C68A0D72C /* GreenTagApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */; };
+		5E0361D0B333E15ECC37AAFE /* Roboflow in Frameworks */ = {isa = PBXBuildFile; productRef = 720366AE59C3E0CBE48CA710 /* Roboflow */; };
 		7DD19D7EEE3C5DECCC5D0B38 /* ARInspectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5B915A5B9DEF4CA9863A74 /* ARInspectionView.swift */; };
 		8F6325BAD4FA27C562FEAEBE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F77868F5CEF6D329DA949631 /* Assets.xcassets */; };
+		9FDB2E7EBEB119C5D4B56B7B /* RoboflowLumberDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F587C85E300D14627CDFB271 /* RoboflowLumberDetector.swift */; };
 		B2F3772BD0F7045A344B2816 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C703118F41ABDA5E5C8D5 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -21,8 +23,20 @@
 		CF15FBEB140D18146687346A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		DEB61932B04FC1402EE4950A /* GreenTag.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GreenTag.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentEventPublisher.swift; sourceTree = "<group>"; };
+		F587C85E300D14627CDFB271 /* RoboflowLumberDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoboflowLumberDetector.swift; sourceTree = "<group>"; };
 		F77868F5CEF6D329DA949631 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0A5DE8B426D6DDA743230A07 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E0361D0B333E15ECC37AAFE /* Roboflow in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		19B6DDF68EF8C3022100DB7E /* GreenTag */ = {
@@ -33,6 +47,7 @@
 				794C703118F41ABDA5E5C8D5 /* ContentView.swift */,
 				2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */,
 				CF15FBEB140D18146687346A /* Info.plist */,
+				F587C85E300D14627CDFB271 /* RoboflowLumberDetector.swift */,
 			);
 			path = GreenTag;
 			sourceTree = "<group>";
@@ -63,6 +78,7 @@
 			buildPhases = (
 				42ED2D7B9E3A97CAC078B330 /* Sources */,
 				B84091513834A818092CD098 /* Resources */,
+				0A5DE8B426D6DDA743230A07 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -70,6 +86,7 @@
 			);
 			name = GreenTag;
 			packageProductDependencies = (
+				720366AE59C3E0CBE48CA710 /* Roboflow */,
 			);
 			productName = GreenTag;
 			productReference = DEB61932B04FC1402EE4950A /* GreenTag.app */;
@@ -95,6 +112,9 @@
 			);
 			mainGroup = A225CA100AEED8539C908501;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				74533302CF70A4CA3BCA9A7D /* XCRemoteSwiftPackageReference "roboflow-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D43400217275BF88A0FB161E /* Products */;
 			projectDirPath = "";
@@ -125,6 +145,7 @@
 				0C81842FD37FD9FFDB8160C5 /* AgentEventPublisher.swift in Sources */,
 				B2F3772BD0F7045A344B2816 /* ContentView.swift in Sources */,
 				470802EA45F3467C68A0D72C /* GreenTagApp.swift in Sources */,
+				9FDB2E7EBEB119C5D4B56B7B /* RoboflowLumberDetector.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -310,6 +331,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		74533302CF70A4CA3BCA9A7D /* XCRemoteSwiftPackageReference "roboflow-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/roboflow/roboflow-swift";
+			requirement = {
+				kind = exactVersion;
+				version = 1.2.7;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		720366AE59C3E0CBE48CA710 /* Roboflow */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 74533302CF70A4CA3BCA9A7D /* XCRemoteSwiftPackageReference "roboflow-swift" */;
+			productName = Roboflow;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = ABA1FD5D50E85B67DCC76071 /* Project object */;
 }

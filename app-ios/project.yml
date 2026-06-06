@@ -7,6 +7,10 @@ settings:
   base:
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
+packages:
+  Roboflow:
+    url: https://github.com/roboflow/roboflow-swift
+    exactVersion: "1.2.7"
 targets:
   GreenTag:
     type: application
@@ -14,6 +18,8 @@ targets:
     sources:
       - GreenTag
       - Assets.xcassets
+    dependencies:
+      - package: Roboflow
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.greentag.GreenTag
