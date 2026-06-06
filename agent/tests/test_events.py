@@ -4,14 +4,15 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from events import (
+    CodeRequirement,
     EventDispatcher,
     ObservationError,
     build_announcement,
     evaluate_compliance,
     make_events_app,
     parse_field_observation,
+    requirement_from_chunks,
 )
-from rag import CodeRequirement
 
 
 def _obs_payload(**overrides) -> dict:
@@ -111,6 +112,56 @@ def test_announcement_with_code_fail() -> None:
     )
     _, instructions = build_announcement(obs, code)
     assert "FAILS" in instructions
+
+
+# --- adapter from Eric's Moss chunks -----------------------------------------
+
+
+def _moss_chunk(**md) -> dict:
+    # Shape returned by backend/greentag/moss_codes.lookup_code.
+    metadata = {
+        "city": "San Francisco",
+        "state": "CA",
+        "code": "IRC",
+        "section": "R602.3(5)",
+    }
+    metadata.update(md)
+    return {
+        "id": "doc_1",
+        "score": 0.91,
+        "text": "Studs shall be spaced not more than 16 inches on center.",
+        "metadata": metadata,
+    }
+
+
+def test_requirement_from_chunks_builds_citation_and_text() -> None:
+    req = requirement_from_chunks([_moss_chunk()])
+    assert req is not None
+    assert req.citation == "IRC R602.3(5)"
+    assert "16 inches on center" in req.summary
+    assert req.max_spacing_in is None  # Moss doesn't extract a numeric limit
+
+
+def test_requirement_from_chunks_empty_or_none() -> None:
+    assert requirement_from_chunks([]) is None
+    assert requirement_from_chunks(None) is None
+
+
+def test_requirement_from_chunks_missing_metadata_falls_back() -> None:
+    req = requirement_from_chunks(
+        [{"id": "x", "score": 0.5, "text": "rule", "metadata": {}}]
+    )
+    assert req is not None
+    assert req.citation == "the applicable building code"
+
+
+def test_announcement_uses_retrieved_chunk_end_to_end() -> None:
+    # The realistic path: vision obs + Eric's chunk -> announcement instructions.
+    obs = parse_field_observation(_obs_payload())
+    code = requirement_from_chunks([_moss_chunk()])
+    _, instructions = build_announcement(obs, code)
+    assert "IRC R602.3(5)" in instructions
+    assert "ONLY this" in instructions  # LLM judges from retrieved text, no memory
 
 
 # --- deterministic compliance ------------------------------------------------

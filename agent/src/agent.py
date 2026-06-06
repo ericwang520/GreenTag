@@ -1,6 +1,8 @@
 import logging
 import os
+import sys
 import textwrap
+from pathlib import Path
 
 from aiohttp import web
 from dotenv import load_dotenv
@@ -22,8 +24,8 @@ from events import (
     FieldObservation,
     build_announcement,
     make_events_app,
+    requirement_from_chunks,
 )
-from rag import lookup_code
 
 logger = logging.getLogger("agent")
 
@@ -34,6 +36,41 @@ load_dotenv(".env.local")
 EVENTS_PORT = int(os.getenv("EVENTS_PORT", "8088"))
 EVENTS_HOST = os.getenv("EVENTS_HOST", "0.0.0.0")
 
+# Bridge to Eric's backend package (a sibling uv project, not pip-installed) so
+# the agent can call his Moss retrieval in-process — the design he documented in
+# backend/greentag/moss_codes.py ("imported DIRECTLY by the voice agent").
+_BACKEND_DIR = Path(__file__).resolve().parents[2] / "backend"
+if _BACKEND_DIR.is_dir() and str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
+
+
+async def _lookup_code_chunks(obs: FieldObservation) -> list[dict] | None:
+    """Call Eric's Moss retrieval for this observation, or None on any failure.
+
+    Defensive by design: if the backend isn't importable, creds are missing, or
+    the index isn't built yet, the agent still announces the measurement (just
+    without a code verdict) instead of going silent. Per schema.md the standard
+    must come from the spec library — so we never substitute a guessed value.
+    """
+    try:
+        from greentag.moss_codes import lookup_code  # Eric's module
+    except Exception:
+        logger.warning(
+            "backend greentag.moss_codes not importable; skipping code lookup"
+        )
+        return None
+
+    city = (obs.location or {}).get("city", "")
+    question = (
+        obs.question_for_agent
+        or f"{obs.inspection_item.replace('_', ' ')} requirements"
+    )
+    try:
+        return await lookup_code(city, question, top_k=3)
+    except Exception:
+        logger.exception("Moss lookup failed; announcing without a code verdict")
+        return None
+
 
 async def _start_events_server(ctx: JobContext, session: AgentSession) -> None:
     """Run the /events HTTP server bound to this session for its lifetime.
@@ -43,8 +80,10 @@ async def _start_events_server(ctx: JobContext, session: AgentSession) -> None:
     """
 
     async def speak(obs: FieldObservation) -> None:
-        # Moss RAG (Eric) — returns the applicable clause, or None until wired.
-        code = await lookup_code(obs.inspection_item, obs.location)
+        # Retrieve the applicable clause from Eric's Moss index, then shape it
+        # into what the agent announces. Both calls are failure-tolerant.
+        chunks = await _lookup_code_chunks(obs)
+        code = requirement_from_chunks(chunks)
         user_input, instructions = build_announcement(obs, code)
         # generate_reply runs the LLM then TTS, so the agent proactively speaks.
         session.generate_reply(user_input=user_input, instructions=instructions)

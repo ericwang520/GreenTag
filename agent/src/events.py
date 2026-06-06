@@ -17,8 +17,6 @@ from dataclasses import dataclass, field
 
 from aiohttp import web
 
-from rag import CodeRequirement
-
 logger = logging.getLogger("agent.events")
 
 EVENT_TYPE = "field_observation.updated"
@@ -30,6 +28,48 @@ LOW_CONFIDENCE_THRESHOLD = 0.6
 # Slack allowed on a deterministic spacing comparison, in inches, to absorb
 # measurement noise. A reading of 16.3" against a 16" limit shouldn't fail.
 SPACING_TOLERANCE_IN = 0.5
+
+# Cap the retrieved clause text fed into the announcement prompt, to keep TTS
+# latency sane. The top chunk is the most relevant; the LLM judges from it.
+MAX_CLAUSE_CHARS = 600
+
+
+@dataclass
+class CodeRequirement:
+    """What the agent announces and cites — the agent-side view of a retrieved
+    clause. Sourced from Eric's Moss retrieval (backend/greentag/moss_codes.py)
+    via `requirement_from_chunks`; this module never retrieves anything itself.
+    """
+
+    citation: str  # e.g. "IRC R602.3(5)" — what the agent cites out loud
+    summary: str  # the retrieved clause text the agent judges/speaks from
+    max_spacing_in: float | None = (
+        None  # numeric limit if known; pass if measured <= this
+    )
+    source: str | None = None  # provenance for the dashboard, e.g. "IRC (model)"
+
+
+def requirement_from_chunks(chunks: list[dict] | None) -> CodeRequirement | None:
+    """Adapt Eric's Moss chunks -> the agent's CodeRequirement.
+
+    Eric's `lookup_code` returns `[{id, score, text, metadata}]` sorted by score
+    (see backend/greentag/moss_codes.py). We take the top chunk, build a citation
+    from its code+section metadata, and carry the clause text for the agent to
+    judge from. Moss doesn't extract a numeric limit, so `max_spacing_in` stays
+    None and the LLM reasons from the clause text. Returns None if nothing was
+    retrieved (the agent then stays tentative).
+    """
+    if not chunks:
+        return None
+    top = chunks[0]
+    md = top.get("metadata") or {}
+    code = (md.get("code") or "").strip()
+    section = (md.get("section") or "").strip()
+    citation = (
+        " ".join(p for p in (code, section) if p) or "the applicable building code"
+    )
+    summary = (top.get("text") or "").strip()[:MAX_CLAUSE_CHARS]
+    return CodeRequirement(citation=citation, summary=summary, source=code or None)
 
 
 @dataclass
