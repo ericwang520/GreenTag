@@ -62,6 +62,9 @@ struct ContentView: View {
     @State private var isPublishing = false
     @State private var roboflowStatus = "Guide points"
     @State private var lumberDetections: [LumberDetection] = []
+    @State private var isAutoPublishing = true
+    @State private var lastPublishedAt = Date.distantPast
+    @State private var lastPublishedObservationSignature = ""
 
     private var observation: FieldObservation {
         FieldObservation(
@@ -101,6 +104,7 @@ struct ContentView: View {
                         spacingIn = spacing
                         self.confidence = confidence
                         arMeasurementStatus = "ARKit measuring"
+                        publishObservationIfNeeded()
                     },
                     onDetectionsUpdated: { detections in
                         lumberDetections = detections
@@ -360,6 +364,11 @@ struct ContentView: View {
                 .foregroundStyle(.white)
                 .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
 
+            Toggle("Auto-send stable readings", isOn: $isAutoPublishing)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.82))
+                .tint(.green)
+
             Button {
                 Task {
                     await publishObservation()
@@ -432,6 +441,28 @@ struct ContentView: View {
 
     @MainActor
     private func publishObservation() async {
+        await publishCurrentObservation()
+    }
+
+    private func publishObservationIfNeeded() {
+        guard isAutoPublishing, confidence >= 0.70 else { return }
+
+        let now = Date()
+        guard now.timeIntervalSince(lastPublishedAt) >= 2.0 else { return }
+
+        let signature = String(format: "%.2f:%.2f:%d", spacingIn, confidence, lumberDetections.count)
+        guard signature != lastPublishedObservationSignature else { return }
+
+        lastPublishedAt = now
+        lastPublishedObservationSignature = signature
+
+        Task {
+            await publishCurrentObservation()
+        }
+    }
+
+    @MainActor
+    private func publishCurrentObservation() async {
         guard let url = URL(string: agentEndpoint) else {
             publishStatus = "Invalid URL"
             return
