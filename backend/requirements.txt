@@ -3,6 +3,7 @@
 moss                 # InferEdge Moss — vector/hybrid retrieval client
 fastapi              # thin API surface (lookup + ingest trigger)
 uvicorn[standard]    # ASGI server for the API
+python-multipart     # multipart form uploads (PDF upload endpoint)
 python-dotenv        # load secrets from repo-root .env
 requests             # Unsiloed REST calls (offline ingest)
 # --- voice agent (added when wiring the LiveKit worker) ---

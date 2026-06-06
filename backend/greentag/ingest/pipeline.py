@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import json
 
-from ..config import CHUNKS_PATH
+import re
+
+from ..config import CHUNKS_PATH, CODES_RAW_DIR
 from ..moss_codes import ingest_codes, lookup_code
+from ..registry import upsert_city_chunks
 from ..unsiloed import iter_segments, parse_pdf
 from .chunking import build_chunks
 from .extract import stud_segment_count
-from .sources import SOURCES, active_sources
+from .sources import SOURCES, Source, active_sources
 
 
 def build_all_chunks(*, force_parse: bool = False) -> tuple[list[dict], dict]:
@@ -33,6 +36,33 @@ def build_all_chunks(*, force_parse: bool = False) -> tuple[list[dict], dict]:
         report["per_city"][source.city] = len(city_chunks)
 
     return chunks, report
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_") or "city"
+
+
+async def ingest_uploaded(
+    pdf_bytes: bytes, city: str, state: str, code_base: str | None = None
+) -> dict:
+    """Parse one uploaded PDF for a new/updated city and add it to the index.
+
+    Saves the PDF, parses it via Unsiloed, builds chunks, upserts them into
+    Moss and the chunks registry. Returns {city, state, chunks}.
+    """
+    code_base = code_base or f"{city} RC"
+    slug = _slug(city)
+    pdf_path = CODES_RAW_DIR / f"upload_{slug}.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(pdf_bytes)
+
+    source = Source(pdf_path.name, city, state, code_base, f"upload_{slug}")
+    body = parse_pdf(pdf_path, source.cache_key, force=True)
+    chunks = build_chunks(source, list(iter_segments(body)))
+
+    upsert_city_chunks(city, chunks)
+    await ingest_codes(chunks, rebuild=False)  # upsert into existing index
+    return {"city": city, "state": state, "chunks": len(chunks)}
 
 
 def write_chunks(chunks: list[dict]) -> None:
