@@ -16,13 +16,26 @@
 		8F6325BAD4FA27C562FEAEBE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F77868F5CEF6D329DA949631 /* Assets.xcassets */; };
 		9FDB2E7EBEB119C5D4B56B7B /* RoboflowLumberDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F587C85E300D14627CDFB271 /* RoboflowLumberDetector.swift */; };
 		B2F3772BD0F7045A344B2816 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C703118F41ABDA5E5C8D5 /* ContentView.swift */; };
+		D603D23CB05BDAE5657AEBE9 /* MeasurementModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87E19F790193C6A59943F8F0 /* MeasurementModelsTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C95E6378E2E4105F6AC621E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = ABA1FD5D50E85B67DCC76071 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 662869E8AAAA9F6C3676F17B;
+			remoteInfo = GreenTag;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreenTagApp.swift; sourceTree = "<group>"; };
 		6A5B915A5B9DEF4CA9863A74 /* ARInspectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARInspectionView.swift; sourceTree = "<group>"; };
 		6C648A862DF4BF53159F2BC9 /* AppSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSecrets.swift; sourceTree = "<group>"; };
+		6F5F2DA5EBED14B86DBC80A3 /* GreenTagTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GreenTagTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		794C703118F41ABDA5E5C8D5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		87E19F790193C6A59943F8F0 /* MeasurementModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementModelsTests.swift; sourceTree = "<group>"; };
 		8957C5A22022F14C1762F9D8 /* MeasurementModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementModels.swift; sourceTree = "<group>"; };
 		CF15FBEB140D18146687346A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		DEB61932B04FC1402EE4950A /* GreenTag.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GreenTag.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -73,6 +86,7 @@
 				F77868F5CEF6D329DA949631 /* Assets.xcassets */,
 				457FF2028A5E21C13316FE4B /* Config */,
 				19B6DDF68EF8C3022100DB7E /* GreenTag */,
+				DAB7525A038D4139B70BFFBB /* GreenTagTests */,
 				D43400217275BF88A0FB161E /* Products */,
 			);
 			sourceTree = "<group>";
@@ -81,8 +95,17 @@
 			isa = PBXGroup;
 			children = (
 				DEB61932B04FC1402EE4950A /* GreenTag.app */,
+				6F5F2DA5EBED14B86DBC80A3 /* GreenTagTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		DAB7525A038D4139B70BFFBB /* GreenTagTests */ = {
+			isa = PBXGroup;
+			children = (
+				87E19F790193C6A59943F8F0 /* MeasurementModelsTests.swift */,
+			);
+			path = GreenTagTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -107,6 +130,24 @@
 			productName = GreenTag;
 			productReference = DEB61932B04FC1402EE4950A /* GreenTag.app */;
 			productType = "com.apple.product-type.application";
+		};
+		867EA1E6A50389E21E30254C /* GreenTagTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 028E729C4369F86DAA6C8F3F /* Build configuration list for PBXNativeTarget "GreenTagTests" */;
+			buildPhases = (
+				D634D9AB6E884FEECEAD165B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				51C44B12B3BB0A4D6C297611 /* PBXTargetDependency */,
+			);
+			name = GreenTagTests;
+			packageProductDependencies = (
+			);
+			productName = GreenTagTests;
+			productReference = 6F5F2DA5EBED14B86DBC80A3 /* GreenTagTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -137,6 +178,7 @@
 			projectRoot = "";
 			targets = (
 				662869E8AAAA9F6C3676F17B /* GreenTag */,
+				867EA1E6A50389E21E30254C /* GreenTagTests */,
 			);
 		};
 /* End PBXProject section */
@@ -167,9 +209,43 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D634D9AB6E884FEECEAD165B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D603D23CB05BDAE5657AEBE9 /* MeasurementModelsTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		51C44B12B3BB0A4D6C297611 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 662869E8AAAA9F6C3676F17B /* GreenTag */;
+			targetProxy = C95E6378E2E4105F6AC621E4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		03EFA0AA637780F3D6AE9DF2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.greentag.GreenTagTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GreenTag.app/GreenTag";
+			};
+			name = Release;
+		};
 		273B99BE54B7F02501122D0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F1F98145EF2BFD2F23A69A8B /* Shared.xcconfig */;
@@ -205,6 +281,24 @@
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
+		};
+		AFEE320B7A6C6997B3AB8A89 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.greentag.GreenTagTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GreenTag.app/GreenTag";
+			};
+			name = Debug;
 		};
 		E506860ACB1BBFE4B47598B7 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -332,6 +426,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		028E729C4369F86DAA6C8F3F /* Build configuration list for PBXNativeTarget "GreenTagTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AFEE320B7A6C6997B3AB8A89 /* Debug */,
+				03EFA0AA637780F3D6AE9DF2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		A8E09DA938F61FCD24AF2638 /* Build configuration list for PBXNativeTarget "GreenTag" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

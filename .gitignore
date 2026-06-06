@@ -6,10 +6,12 @@ node_modules/
 *.pyc
 .DS_Store
 deprecated/
+/GreenTag.xcodeproj/
 DerivedData/
 app-ios/DerivedData/
 app-ios/Config/Secrets.xcconfig
 *.xcuserdata/
+**/xcuserdata/
 *.xcuserstate
 *.xcresult
 

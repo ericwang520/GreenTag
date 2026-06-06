@@ -41,3 +41,15 @@ targets:
         UILaunchScreen:
           UIColorName: LaunchBackground
         UIRequiresFullScreen: true
+  GreenTagTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - GreenTagTests
+    dependencies:
+      - target: GreenTag
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.greentag.GreenTagTests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
