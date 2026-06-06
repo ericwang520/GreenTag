@@ -1,0 +1,478 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0C81842FD37FD9FFDB8160C5 /* AgentEventPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */; };
+		22A5AE742DA68358F3140829 /* MeasurementModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8957C5A22022F14C1762F9D8 /* MeasurementModels.swift */; };
+		470802EA45F3467C68A0D72C /* GreenTagApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */; };
+		53CD6E2076990B79976DFABA /* AppSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C648A862DF4BF53159F2BC9 /* AppSecrets.swift */; };
+		5E0361D0B333E15ECC37AAFE /* Roboflow in Frameworks */ = {isa = PBXBuildFile; productRef = 720366AE59C3E0CBE48CA710 /* Roboflow */; };
+		7DD19D7EEE3C5DECCC5D0B38 /* ARInspectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5B915A5B9DEF4CA9863A74 /* ARInspectionView.swift */; };
+		8F6325BAD4FA27C562FEAEBE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F77868F5CEF6D329DA949631 /* Assets.xcassets */; };
+		9FDB2E7EBEB119C5D4B56B7B /* RoboflowLumberDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F587C85E300D14627CDFB271 /* RoboflowLumberDetector.swift */; };
+		B2F3772BD0F7045A344B2816 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794C703118F41ABDA5E5C8D5 /* ContentView.swift */; };
+		D603D23CB05BDAE5657AEBE9 /* MeasurementModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87E19F790193C6A59943F8F0 /* MeasurementModelsTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C95E6378E2E4105F6AC621E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = ABA1FD5D50E85B67DCC76071 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 662869E8AAAA9F6C3676F17B;
+			remoteInfo = GreenTag;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreenTagApp.swift; sourceTree = "<group>"; };
+		6A5B915A5B9DEF4CA9863A74 /* ARInspectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARInspectionView.swift; sourceTree = "<group>"; };
+		6C648A862DF4BF53159F2BC9 /* AppSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSecrets.swift; sourceTree = "<group>"; };
+		6F5F2DA5EBED14B86DBC80A3 /* GreenTagTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GreenTagTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		794C703118F41ABDA5E5C8D5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		87E19F790193C6A59943F8F0 /* MeasurementModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementModelsTests.swift; sourceTree = "<group>"; };
+		8957C5A22022F14C1762F9D8 /* MeasurementModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementModels.swift; sourceTree = "<group>"; };
+		CF15FBEB140D18146687346A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		DEB61932B04FC1402EE4950A /* GreenTag.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GreenTag.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentEventPublisher.swift; sourceTree = "<group>"; };
+		F1F98145EF2BFD2F23A69A8B /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
+		F587C85E300D14627CDFB271 /* RoboflowLumberDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoboflowLumberDetector.swift; sourceTree = "<group>"; };
+		F77868F5CEF6D329DA949631 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0A5DE8B426D6DDA743230A07 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E0361D0B333E15ECC37AAFE /* Roboflow in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		19B6DDF68EF8C3022100DB7E /* GreenTag */ = {
+			isa = PBXGroup;
+			children = (
+				F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */,
+				6C648A862DF4BF53159F2BC9 /* AppSecrets.swift */,
+				6A5B915A5B9DEF4CA9863A74 /* ARInspectionView.swift */,
+				794C703118F41ABDA5E5C8D5 /* ContentView.swift */,
+				2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */,
+				CF15FBEB140D18146687346A /* Info.plist */,
+				8957C5A22022F14C1762F9D8 /* MeasurementModels.swift */,
+				F587C85E300D14627CDFB271 /* RoboflowLumberDetector.swift */,
+			);
+			path = GreenTag;
+			sourceTree = "<group>";
+		};
+		457FF2028A5E21C13316FE4B /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				F1F98145EF2BFD2F23A69A8B /* Shared.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		A225CA100AEED8539C908501 = {
+			isa = PBXGroup;
+			children = (
+				F77868F5CEF6D329DA949631 /* Assets.xcassets */,
+				457FF2028A5E21C13316FE4B /* Config */,
+				19B6DDF68EF8C3022100DB7E /* GreenTag */,
+				DAB7525A038D4139B70BFFBB /* GreenTagTests */,
+				D43400217275BF88A0FB161E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D43400217275BF88A0FB161E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DEB61932B04FC1402EE4950A /* GreenTag.app */,
+				6F5F2DA5EBED14B86DBC80A3 /* GreenTagTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DAB7525A038D4139B70BFFBB /* GreenTagTests */ = {
+			isa = PBXGroup;
+			children = (
+				87E19F790193C6A59943F8F0 /* MeasurementModelsTests.swift */,
+			);
+			path = GreenTagTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		662869E8AAAA9F6C3676F17B /* GreenTag */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A8E09DA938F61FCD24AF2638 /* Build configuration list for PBXNativeTarget "GreenTag" */;
+			buildPhases = (
+				42ED2D7B9E3A97CAC078B330 /* Sources */,
+				B84091513834A818092CD098 /* Resources */,
+				0A5DE8B426D6DDA743230A07 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GreenTag;
+			packageProductDependencies = (
+				720366AE59C3E0CBE48CA710 /* Roboflow */,
+			);
+			productName = GreenTag;
+			productReference = DEB61932B04FC1402EE4950A /* GreenTag.app */;
+			productType = "com.apple.product-type.application";
+		};
+		867EA1E6A50389E21E30254C /* GreenTagTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 028E729C4369F86DAA6C8F3F /* Build configuration list for PBXNativeTarget "GreenTagTests" */;
+			buildPhases = (
+				D634D9AB6E884FEECEAD165B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				51C44B12B3BB0A4D6C297611 /* PBXTargetDependency */,
+			);
+			name = GreenTagTests;
+			packageProductDependencies = (
+			);
+			productName = GreenTagTests;
+			productReference = 6F5F2DA5EBED14B86DBC80A3 /* GreenTagTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		ABA1FD5D50E85B67DCC76071 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = B548A55BD23529C59C6A7C8B /* Build configuration list for PBXProject "GreenTag" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A225CA100AEED8539C908501;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				74533302CF70A4CA3BCA9A7D /* XCRemoteSwiftPackageReference "roboflow-swift" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D43400217275BF88A0FB161E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				662869E8AAAA9F6C3676F17B /* GreenTag */,
+				867EA1E6A50389E21E30254C /* GreenTagTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B84091513834A818092CD098 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8F6325BAD4FA27C562FEAEBE /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		42ED2D7B9E3A97CAC078B330 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7DD19D7EEE3C5DECCC5D0B38 /* ARInspectionView.swift in Sources */,
+				0C81842FD37FD9FFDB8160C5 /* AgentEventPublisher.swift in Sources */,
+				53CD6E2076990B79976DFABA /* AppSecrets.swift in Sources */,
+				B2F3772BD0F7045A344B2816 /* ContentView.swift in Sources */,
+				470802EA45F3467C68A0D72C /* GreenTagApp.swift in Sources */,
+				22A5AE742DA68358F3140829 /* MeasurementModels.swift in Sources */,
+				9FDB2E7EBEB119C5D4B56B7B /* RoboflowLumberDetector.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D634D9AB6E884FEECEAD165B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D603D23CB05BDAE5657AEBE9 /* MeasurementModelsTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		51C44B12B3BB0A4D6C297611 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 662869E8AAAA9F6C3676F17B /* GreenTag */;
+			targetProxy = C95E6378E2E4105F6AC621E4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		03EFA0AA637780F3D6AE9DF2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.greentag.GreenTagTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GreenTag.app/GreenTag";
+			};
+			name = Release;
+		};
+		273B99BE54B7F02501122D0B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1F98145EF2BFD2F23A69A8B /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = GreenTag/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.greentag.GreenTag;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		70310EE8A1B29EF087C2ACE8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1F98145EF2BFD2F23A69A8B /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = GreenTag/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.greentag.GreenTag;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		AFEE320B7A6C6997B3AB8A89 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.greentag.GreenTagTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GreenTag.app/GreenTag";
+			};
+			name = Debug;
+		};
+		E506860ACB1BBFE4B47598B7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		F7E99C9E4F94ACA4C674943F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		028E729C4369F86DAA6C8F3F /* Build configuration list for PBXNativeTarget "GreenTagTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AFEE320B7A6C6997B3AB8A89 /* Debug */,
+				03EFA0AA637780F3D6AE9DF2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A8E09DA938F61FCD24AF2638 /* Build configuration list for PBXNativeTarget "GreenTag" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				273B99BE54B7F02501122D0B /* Debug */,
+				70310EE8A1B29EF087C2ACE8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B548A55BD23529C59C6A7C8B /* Build configuration list for PBXProject "GreenTag" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F7E99C9E4F94ACA4C674943F /* Debug */,
+				E506860ACB1BBFE4B47598B7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		74533302CF70A4CA3BCA9A7D /* XCRemoteSwiftPackageReference "roboflow-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/roboflow/roboflow-swift";
+			requirement = {
+				kind = exactVersion;
+				version = 1.2.7;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		720366AE59C3E0CBE48CA710 /* Roboflow */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 74533302CF70A4CA3BCA9A7D /* XCRemoteSwiftPackageReference "roboflow-swift" */;
+			productName = Roboflow;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = ABA1FD5D50E85B67DCC76071 /* Project object */;
+}

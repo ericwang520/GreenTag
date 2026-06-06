@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GreenTag — Building-Code Coverage</title>
+<style>
+  :root {
+    --green: #16a34a; --green-soft: #bbf7d0; --grey: #d0d0d0;
+    --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --bg: #f8fafc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--bg);
+  }
+  header { padding: 18px 24px; border-bottom: 1px solid var(--line); background: #fff; }
+  header h1 { margin: 0; font-size: 20px; }
+  header h1 span { color: var(--green); }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .wrap { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; padding: 24px; max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  #map svg { width: 100%; height: auto; display: block; }
+  #map path { transition: fill .2s; }
+  path.covered { fill: var(--green) !important; cursor: pointer; }
+  path.covered:hover { fill: #15803d !important; }
+  .pin { cursor: pointer; }
+  .pin-label { font-size: 11px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .city-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+  .city-row:hover { border-color: var(--green); background: #f0fdf4; }
+  .city-row b { font-size: 14px; }
+  .city-row small { color: var(--muted); }
+  .badge { font-size: 11px; background: var(--green-soft); color: #166534; padding: 2px 8px; border-radius: 999px; }
+  .badge.base { background: #e0e7ff; color: #3730a3; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea, button { font: inherit; }
+  input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+  button { margin-top: 12px; background: var(--green); color: #fff; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #15803d; }
+  button:disabled { opacity: .6; cursor: wait; }
+  .result { border-left: 3px solid var(--green); padding: 8px 12px; margin-top: 10px; background: #f0fdf4; border-radius: 0 8px 8px 0; }
+  .result .cite { font-weight: 700; color: #166534; }
+  .result .meta { font-size: 12px; color: var(--muted); margin: 2px 0 6px; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .ok { color: var(--green); font-weight: 600; }
+  .err { color: #dc2626; font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>GreenTag</span> — building-code coverage map</h1>
+  <p>Green states have an indexed code. Click a city to see the wood-stud-spacing rule. Retrieval by Moss · parsing by Unsiloed.</p>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>Coverage</h2>
+    <div id="map">loading map…</div>
+    <div class="legend">
+      <span><i style="background:var(--green)"></i>indexed code</span>
+      <span><i style="background:var(--grey)"></i>no local code (falls back to IRC base)</span>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Indexed jurisdictions</h2>
+      <div id="cities">…</div>
+    </div>
+
+    <div class="card" style="margin-top:24px">
+      <h2>Ask the code</h2>
+      <label>City</label>
+      <select id="q-city"></select>
+      <label>Question</label>
+      <input id="q-text" value="stud spacing for a load bearing wall" />
+      <button id="q-btn">Look up</button>
+      <div id="q-results"></div>
+    </div>
+
+    <div class="card" style="margin-top:24px">
+      <h2>Add a city's code</h2>
+      <label>City</label><input id="u-city" placeholder="e.g. Austin" />
+      <label>State (2-letter)</label><input id="u-state" placeholder="e.g. TX" maxlength="2" />
+      <label>Code PDF</label><input id="u-file" type="file" accept="application/pdf" />
+      <button id="u-btn">Upload &amp; index</button>
+      <div id="u-status" class="note"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = ""; // same origin
+// Precise pixel coords (959x593 viewBox) for known cities; others fall back to
+// the state's bounding-box center computed at runtime.
+const CITY_COORDS = { "San Francisco": [26, 250], "Seattle": [86, 58] };
+
+let SVG = null;
+
+async function loadMap() {
+  const res = await fetch("us.svg");
+  const txt = await res.text();
+  const div = document.getElementById("map");
+  div.innerHTML = txt;
+  SVG = div.querySelector("svg");
+  if (!SVG.getAttribute("viewBox")) {
+    SVG.setAttribute("viewBox", `0 0 ${SVG.getAttribute("width")||959} ${SVG.getAttribute("height")||593}`);
+  }
+  SVG.removeAttribute("width"); SVG.removeAttribute("height");
+}
+
+function stateCenter(abbr) {
+  const nodes = SVG.querySelectorAll("path." + abbr.toLowerCase());
+  if (!nodes.length) return null;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  nodes.forEach(n => { const b=n.getBBox(); x0=Math.min(x0,b.x); y0=Math.min(y0,b.y); x1=Math.max(x1,b.x+b.width); y1=Math.max(y1,b.y+b.height); });
+  return [(x0+x1)/2, (y0+y1)/2];
+}
+
+function svgEl(tag, attrs) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+function addPin(city, xy) {
+  const [x,y] = xy;
+  const g = svgEl("g", { class: "pin" });
+  g.appendChild(svgEl("circle", { cx:x, cy:y, r:5, fill:"#dc2626", stroke:"#fff", "stroke-width":1.5 }));
+  const t = svgEl("text", { x:x+8, y:y+4, class:"pin-label" }); t.textContent = city;
+  g.appendChild(t);
+  g.addEventListener("click", () => runLookup(city));
+  SVG.appendChild(g);
+}
+
+async function loadCities() {
+  const { cities } = await (await fetch(API + "/codes/cities")).json();
+  const list = document.getElementById("cities");
+  const sel = document.getElementById("q-city");
+  list.innerHTML = ""; sel.innerHTML = "";
+  // reset map
+  SVG.querySelectorAll("path.covered").forEach(p => p.classList.remove("covered"));
+  SVG.querySelectorAll("g.pin").forEach(p => p.remove());
+
+  cities.forEach(c => {
+    // dropdown
+    const o = document.createElement("option"); o.value = c.city; o.textContent = c.city; sel.appendChild(o);
+    // side list
+    const row = document.createElement("div"); row.className = "city-row";
+    row.innerHTML = `<div><b>${c.city}</b><br><small>${c.code}</small></div>
+      <span class="badge ${c.is_base?'base':''}">${c.is_base?'base code':c.state}</span>`;
+    row.addEventListener("click", () => runLookup(c.city));
+    list.appendChild(row);
+    // map: color state + pin (skip the US-wide base)
+    if (!c.is_base && c.state && c.state.length === 2) {
+      SVG.querySelectorAll("path." + c.state.toLowerCase()).forEach(p => p.classList.add("covered"));
+      const xy = CITY_COORDS[c.city] || stateCenter(c.state);
+      if (xy) addPin(c.city, xy);
+    }
+  });
+}
+
+async function runLookup(city) {
+  document.getElementById("q-city").value = city;
+  const q = document.getElementById("q-text").value;
+  const box = document.getElementById("q-results");
+  box.innerHTML = "<div class='note'>searching…</div>";
+  const url = `${API}/codes/lookup?city=${encodeURIComponent(city)}&q=${encodeURIComponent(q)}&top_k=3`;
+  const { results } = await (await fetch(url)).json();
+  if (!results.length) { box.innerHTML = "<div class='note'>no results</div>"; return; }
+  box.innerHTML = results.map(r => `
+    <div class="result">
+      <div class="cite">${r.metadata.code}</div>
+      <div class="meta">${r.metadata.city} · §${r.metadata.section} · score ${r.score.toFixed(3)}</div>
+      <div>${r.text}</div>
+    </div>`).join("");
+}
+
+document.getElementById("q-btn").addEventListener("click", () => runLookup(document.getElementById("q-city").value));
+
+document.getElementById("u-btn").addEventListener("click", async () => {
+  const btn = document.getElementById("u-btn"), st = document.getElementById("u-status");
+  const city = document.getElementById("u-city").value.trim();
+  const state = document.getElementById("u-state").value.trim().toUpperCase();
+  const file = document.getElementById("u-file").files[0];
+  if (!city || !state || !file) { st.innerHTML = "<span class='err'>city, state, and a PDF are required.</span>"; return; }
+  const fd = new FormData(); fd.append("file", file); fd.append("city", city); fd.append("state", state);
+  btn.disabled = true; st.innerHTML = "parsing via Unsiloed &amp; indexing into Moss… (can take ~1 min)";
+  try {
+    const res = await fetch(API + "/ingest/upload", { method:"POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "upload failed");
+    st.innerHTML = `<span class='ok'>✓ ${data.city} indexed (${data.chunks} chunk${data.chunks>1?'s':''}). Now green on the map.</span>`;
+    await loadCities();
+    runLookup(data.city);
+  } catch (e) {
+    st.innerHTML = `<span class='err'>${e.message}</span>`;
+  } finally { btn.disabled = false; }
+});
+
+(async () => { await loadMap(); await loadCities(); })();
+</script>
+</body>
+</html>

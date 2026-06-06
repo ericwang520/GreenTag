@@ -5,3 +5,17 @@ node_modules/
 .venv/
 *.pyc
 .DS_Store
+deprecated/
+/GreenTag.xcodeproj/
+DerivedData/
+app-ios/DerivedData/
+app-ios/Config/Secrets.xcconfig
+*.xcuserdata/
+**/xcuserdata/
+*.xcuserstate
+*.xcresult
+
+# backend: source PDFs are large and duplicated in agent/data; the Unsiloed
+# cache (backend/data/raw) is committed so re-runs skip the API/quota.
+backend/data/codes_raw/
+.gstack/
