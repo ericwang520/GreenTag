@@ -60,6 +60,8 @@ struct ContentView: View {
     @State private var agentEndpoint = "http://127.0.0.1:8000/events"
     @State private var publishStatus = "Not sent"
     @State private var isPublishing = false
+    @State private var roboflowStatus = "Guide points"
+    @State private var lumberDetections: [LumberDetection] = []
 
     private var observation: FieldObservation {
         FieldObservation(
@@ -90,14 +92,23 @@ struct ContentView: View {
             Color.black.ignoresSafeArea()
 
             if isARSessionVisible {
-                ARInspectionView { spacing, confidence in
-                    spacingIn = spacing
-                    self.confidence = confidence
-                    arMeasurementStatus = "ARKit measuring"
-                }
+                ARInspectionView(
+                    roboflowAPIKey: AppSecrets.roboflowAPIKey,
+                    onMeasurementUpdated: { spacing, confidence in
+                        spacingIn = spacing
+                        self.confidence = confidence
+                        arMeasurementStatus = "ARKit measuring"
+                    },
+                    onDetectionsUpdated: { detections in
+                        lumberDetections = detections
+                    },
+                    onDetectorStatusUpdated: { status in
+                        roboflowStatus = status
+                    }
+                )
                     .ignoresSafeArea()
 
-                ARGuideOverlay(spacingIn: spacingIn)
+                ARGuideOverlay(spacingIn: spacingIn, detections: lumberDetections)
                     .ignoresSafeArea()
             }
 
@@ -112,6 +123,7 @@ struct ContentView: View {
 
                 Spacer()
 
+                roboflowPanel
                 measurementPanel
                 agentEndpointPanel
                 agentPayloadPanel
@@ -210,6 +222,35 @@ struct ContentView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var roboflowPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Roboflow vision", systemImage: "eye.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                Text(roboflowStatus)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.green)
+            }
+
+            Text(AppSecrets.roboflowAPIKey.isEmpty
+                ? "Add app-ios/Config/Secrets.xcconfig to enable Roboflow Core ML."
+                : "Roboflow key loaded from local xcconfig.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.66))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.10), lineWidth: 1)
         )
     }
 
@@ -384,22 +425,28 @@ struct ContentView: View {
 
 private struct ARGuideOverlay: View {
     let spacingIn: Double
+    let detections: [LumberDetection]
 
     var body: some View {
         GeometryReader { geometry in
-            let y = geometry.size.height * 0.50
-            let leftX = geometry.size.width * 0.36
-            let rightX = geometry.size.width * 0.64
+            let pair = selectedPair(in: geometry.size)
 
             ZStack(alignment: .topLeading) {
+                ForEach(detections) { detection in
+                    Rectangle()
+                        .stroke(.orange, style: StrokeStyle(lineWidth: 2, dash: [7, 5]))
+                        .frame(width: detection.frame.width, height: detection.frame.height)
+                        .position(detection.center)
+                }
+
                 Path { path in
-                    path.move(to: CGPoint(x: leftX, y: y))
-                    path.addLine(to: CGPoint(x: rightX, y: y))
+                    path.move(to: pair.left)
+                    path.addLine(to: pair.right)
                 }
                 .stroke(.green, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 6]))
 
-                guidePoint(at: CGPoint(x: leftX, y: y))
-                guidePoint(at: CGPoint(x: rightX, y: y))
+                guidePoint(at: pair.left)
+                guidePoint(at: pair.right)
 
                 Text(String(format: "%.2f in", spacingIn))
                     .font(.system(size: 13, weight: .bold))
@@ -408,7 +455,7 @@ private struct ARGuideOverlay: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(.green, in: Capsule())
-                    .position(x: (leftX + rightX) / 2, y: y - 30)
+                    .position(x: (pair.left.x + pair.right.x) / 2, y: pair.left.y - 30)
             }
         }
         .allowsHitTesting(false)
@@ -426,6 +473,24 @@ private struct ARGuideOverlay: View {
                 .frame(width: 8, height: 8)
         }
         .position(point)
+    }
+
+    private func selectedPair(in size: CGSize) -> (left: CGPoint, right: CGPoint) {
+        let sortedDetections = detections.sorted { lhs, rhs in
+            lhs.frame.midX < rhs.frame.midX
+        }
+
+        guard let first = sortedDetections.first,
+              let last = sortedDetections.last,
+              first.id != last.id else {
+            let y = size.height * 0.50
+            return (
+                CGPoint(x: size.width * 0.36, y: y),
+                CGPoint(x: size.width * 0.64, y: y)
+            )
+        }
+
+        return (first.center, last.center)
     }
 }
 

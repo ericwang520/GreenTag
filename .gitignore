@@ -8,6 +8,7 @@ node_modules/
 deprecated/
 DerivedData/
 app-ios/DerivedData/
+app-ios/Config/Secrets.xcconfig
 *.xcuserdata/
 *.xcuserstate
 *.xcresult
