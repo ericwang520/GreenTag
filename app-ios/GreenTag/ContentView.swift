@@ -65,10 +65,19 @@ struct ContentView: View {
     @State private var isAutoPublishing = true
     @State private var lastPublishedAt = Date.distantPast
     @State private var lastPublishedObservationSignature = ""
+    @State private var observationCounter = 1
 
     private var observation: FieldObservation {
+        makeObservation(id: currentObservationID)
+    }
+
+    private var currentObservationID: String {
+        String(format: "obs_ios_%04d", observationCounter)
+    }
+
+    private func makeObservation(id: String) -> FieldObservation {
         FieldObservation(
-            observationID: "obs_demo_001",
+            observationID: id,
             location: ObservationLocation(city: "San Francisco", state: "CA"),
             measurement: ObservationMeasurement(spacingIn: spacingIn, confidence: confidence),
             detections: lumberDetections.map { detection in
@@ -472,11 +481,19 @@ struct ContentView: View {
         defer { isPublishing = false }
 
         do {
-            let statusCode = try await AgentEventPublisher(endpoint: url).publish(observation)
+            let outboundObservation = nextObservationForPublish()
+            let statusCode = try await AgentEventPublisher(endpoint: url).publish(outboundObservation)
             publishStatus = "Sent \(statusCode)"
         } catch {
             publishStatus = "Send failed"
         }
+    }
+
+    @MainActor
+    private func nextObservationForPublish() -> FieldObservation {
+        let outboundObservation = makeObservation(id: currentObservationID)
+        observationCounter += 1
+        return outboundObservation
     }
 }
 
