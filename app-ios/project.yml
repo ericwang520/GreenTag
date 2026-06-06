@@ -23,3 +23,8 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
     info:
       path: GreenTag/Info.plist
+      properties:
+        NSCameraUsageDescription: GreenTag uses the camera with ARKit to measure framing spacing during inspections.
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIRequiresFullScreen: true

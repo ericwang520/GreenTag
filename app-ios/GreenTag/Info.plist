@@ -18,5 +18,14 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSCameraUsageDescription</key>
+	<string>GreenTag uses the camera with ARKit to measure framing spacing during inspections.</string>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 </dict>
 </plist>

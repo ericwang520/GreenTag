@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 struct FieldObservation: Encodable {
@@ -52,6 +53,9 @@ struct ObservationDetection: Encodable {
 struct ContentView: View {
     @State private var spacingIn = 15.25
     @State private var confidence = 0.86
+    @State private var cameraAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
+    @State private var isPreparingCamera = false
+    @State private var isARSessionVisible = false
 
     private var observation: FieldObservation {
         FieldObservation(
@@ -81,11 +85,22 @@ struct ContentView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
+            if isARSessionVisible {
+                ARInspectionView()
+                    .ignoresSafeArea()
+            }
+
             VStack(alignment: .leading, spacing: 18) {
                 header
+
+                if !isARSessionVisible {
+                    cameraStartPanel
+                }
+
+                Spacer()
+
                 measurementPanel
                 agentPayloadPanel
-                Spacer()
             }
             .padding(18)
         }
@@ -102,6 +117,38 @@ struct ContentView: View {
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(.white.opacity(0.72))
         }
+    }
+
+    private var cameraStartPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(cameraStartTitle)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.white)
+
+            Text(cameraStartMessage)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.white.opacity(0.68))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                Task {
+                    await prepareCamera()
+                }
+            } label: {
+                Label(isPreparingCamera ? "Starting" : "Start AR Camera", systemImage: "camera.viewfinder")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(isPreparingCamera || cameraAuthorizationStatus == .denied || cameraAuthorizationStatus == .restricted)
+        }
+        .padding(16)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        )
     }
 
     private var measurementPanel: some View {
@@ -179,6 +226,55 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(.white.opacity(0.10), lineWidth: 1)
         )
+    }
+
+    private var cameraStartTitle: String {
+        switch cameraAuthorizationStatus {
+        case .authorized:
+            "Ready for AR inspection"
+        case .notDetermined:
+            "Camera access required"
+        case .denied, .restricted:
+            "Camera access is off"
+        @unknown default:
+            "Camera status unknown"
+        }
+    }
+
+    private var cameraStartMessage: String {
+        switch cameraAuthorizationStatus {
+        case .authorized:
+            "Start the camera to begin the ARKit measurement loop."
+        case .notDetermined:
+            "GreenTag needs camera access for ARKit wall tracking and Roboflow lumber detection."
+        case .denied, .restricted:
+            "Enable camera access in Settings before running the AR inspection."
+        @unknown default:
+            "Restart the app and try again."
+        }
+    }
+
+    @MainActor
+    private func prepareCamera() async {
+        guard !isPreparingCamera else { return }
+        isPreparingCamera = true
+        defer { isPreparingCamera = false }
+
+        let currentStatus = AVCaptureDevice.authorizationStatus(for: .video)
+        cameraAuthorizationStatus = currentStatus
+
+        switch currentStatus {
+        case .authorized:
+            isARSessionVisible = true
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            cameraAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
+            isARSessionVisible = granted
+        case .denied, .restricted:
+            isARSessionVisible = false
+        @unknown default:
+            isARSessionVisible = false
+        }
     }
 }
 
