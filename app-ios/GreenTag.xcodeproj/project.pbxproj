@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0C81842FD37FD9FFDB8160C5 /* AgentEventPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */; };
+		22A5AE742DA68358F3140829 /* MeasurementModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8957C5A22022F14C1762F9D8 /* MeasurementModels.swift */; };
 		470802EA45F3467C68A0D72C /* GreenTagApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */; };
 		53CD6E2076990B79976DFABA /* AppSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C648A862DF4BF53159F2BC9 /* AppSecrets.swift */; };
 		5E0361D0B333E15ECC37AAFE /* Roboflow in Frameworks */ = {isa = PBXBuildFile; productRef = 720366AE59C3E0CBE48CA710 /* Roboflow */; };
@@ -22,6 +23,7 @@
 		6A5B915A5B9DEF4CA9863A74 /* ARInspectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARInspectionView.swift; sourceTree = "<group>"; };
 		6C648A862DF4BF53159F2BC9 /* AppSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSecrets.swift; sourceTree = "<group>"; };
 		794C703118F41ABDA5E5C8D5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		8957C5A22022F14C1762F9D8 /* MeasurementModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementModels.swift; sourceTree = "<group>"; };
 		CF15FBEB140D18146687346A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		DEB61932B04FC1402EE4950A /* GreenTag.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GreenTag.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentEventPublisher.swift; sourceTree = "<group>"; };
@@ -51,6 +53,7 @@
 				794C703118F41ABDA5E5C8D5 /* ContentView.swift */,
 				2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */,
 				CF15FBEB140D18146687346A /* Info.plist */,
+				8957C5A22022F14C1762F9D8 /* MeasurementModels.swift */,
 				F587C85E300D14627CDFB271 /* RoboflowLumberDetector.swift */,
 			);
 			path = GreenTag;
@@ -159,6 +162,7 @@
 				53CD6E2076990B79976DFABA /* AppSecrets.swift in Sources */,
 				B2F3772BD0F7045A344B2816 /* ContentView.swift in Sources */,
 				470802EA45F3467C68A0D72C /* GreenTagApp.swift in Sources */,
+				22A5AE742DA68358F3140829 /* MeasurementModels.swift in Sources */,
 				9FDB2E7EBEB119C5D4B56B7B /* RoboflowLumberDetector.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

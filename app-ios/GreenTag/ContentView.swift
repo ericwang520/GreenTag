@@ -68,11 +68,14 @@ struct ContentView: View {
             observationID: "obs_demo_001",
             location: ObservationLocation(city: "San Francisco", state: "CA"),
             measurement: ObservationMeasurement(spacingIn: spacingIn, confidence: confidence),
-            detections: [
-                ObservationDetection(objectClass: "lumber", confidence: 0.91),
-                ObservationDetection(objectClass: "lumber", confidence: 0.88)
-            ]
+            detections: lumberDetections.map { detection in
+                ObservationDetection(objectClass: detection.className, confidence: detection.confidence)
+            }
         )
+    }
+
+    private var spacingPreview: StudSpacingPreview {
+        StudSpacingPreview(measuredInches: spacingIn)
     }
 
     private var observationJSON: String {
@@ -203,6 +206,29 @@ struct ContentView: View {
                         .monospacedDigit()
                         .foregroundStyle(.green)
                 }
+            }
+
+            Divider().background(.white.opacity(0.16))
+
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(spacingPreview.status.title)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+
+                    Text(spacingPreview.detailText)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.66))
+                }
+
+                Spacer()
+
+                Text("agent verifies code")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(.green.opacity(0.14), in: Capsule())
             }
 
             Divider().background(.white.opacity(0.16))
