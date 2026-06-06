@@ -1,0 +1,42 @@
+[
+  {
+    "city": "IRC (model)",
+    "state": "US",
+    "code": "IRC R602.3(5)",
+    "section": "R602.3(5)",
+    "topic": "wood stud spacing",
+    "text": "Table R602.3(5) — Size, Height and Spacing of Wood Studs. 2x3 studs — non-bearing walls: up to 10 ft tall, max 16 in o.c.. 2x4 studs — bearing walls: up to 10 ft tall (laterally unsupported), max 24 in o.c. supporting a roof and ceiling only, max 16 in o.c. supporting one floor plus roof and ceiling, max 24 in o.c. supporting one floor only; non-bearing walls: up to 14 ft tall, max 24 in o.c.. 3x4 studs — bearing walls: up to 10 ft tall (laterally unsupported), max 24 in o.c. supporting a roof and ceiling only, max 24 in o.c. supporting one floor plus roof and ceiling, max 16 in o.c. supporting two floors plus roof and ceiling, max 24 in o.c. supporting one floor only; non-bearing walls: up to 14 ft tall, max 24 in o.c.. 2x5 studs — bearing walls: up to 10 ft tall (laterally unsupported), max 24 in o.c. supporting a roof and ceiling only, max 24 in o.c. supporting one floor plus roof and ceiling, max 24 in o.c. supporting one floor only; non-bearing walls: up to 16 ft tall, max 24 in o.c.. 2x6 studs — bearing walls: up to 10 ft tall (laterally unsupported), max 24 in o.c. supporting a roof and ceiling only, max 24 in o.c. supporting one floor plus roof and ceiling, max 16 in o.c. supporting two floors plus roof and ceiling, max 24 in o.c. supporting one floor only; non-bearing walls: up to 20 ft tall, max 24 in o.c.."
+  },
+  {
+    "city": "IRC (model)",
+    "state": "US",
+    "code": "IRC R602.3",
+    "section": "R602.3",
+    "topic": "wood stud spacing",
+    "text": "Per IRC Table R602.3(5), wood studs in load-bearing walls are spaced a maximum of 16 inches on center for the common case of a 2x4 stud supporting one floor plus a roof-ceiling assembly. Lighter loads (roof and ceiling only) and larger studs such as 2x6 may be spaced up to 24 inches on center. Laterally unsupported bearing-wall studs are limited to about 10 feet in height. Non-bearing wall studs may be spaced up to 24 inches on center (up to 14 feet for 2x4). Utility-grade studs are limited to 16 inches on center. Whether 16 or 24 inches applies depends on stud size, wall height, and the loads carried."
+  },
+  {
+    "city": "San Francisco",
+    "state": "CA",
+    "code": "CRC R602.3 (adopts IRC R602.3(5))",
+    "section": "R602.3",
+    "topic": "wood stud spacing",
+    "text": "San Francisco enforces its local building code together with the 2025 California Residential Code (CRC), which adopts IRC R602.3. The local amendments do not modify wood stud spacing (Section R602.3), so the adopted base rule applies in San Francisco: studs in load-bearing walls are spaced a maximum of 16 inches on center (for example a 2x4 supporting one floor plus roof and ceiling), and may be spaced up to 24 inches on center for lighter loads or larger studs, per Table R602.3(5)."
+  },
+  {
+    "city": "Seattle",
+    "state": "WA",
+    "code": "Seattle RC R602.3(5)",
+    "section": "R602.3(5)",
+    "topic": "wood stud spacing",
+    "text": "Table R602.3(5) — Size, Height and Spacing of Wood Studs. 2x3 studs — non-bearing walls: up to 10 ft tall, max 16 in o.c.. 2x4 studs — bearing walls: up to 10 ft tall (laterally unsupported), max 24 in o.c. supporting a roof and ceiling only, max 16 in o.c. supporting one floor plus roof and ceiling, max 24 in o.c. supporting one floor only; non-bearing walls: up to 14 ft tall, max 24 in o.c.. 3x4 studs — bearing walls: up to 10 ft tall (laterally unsupported), max 24 in o.c. supporting a roof and ceiling only, max 24 in o.c. supporting one floor plus roof and ceiling, max 16 in o.c. supporting two floors plus roof and ceiling, max 24 in o.c. supporting one floor only; non-bearing walls: up to 14 ft tall, max 24 in o.c.. 2x5 studs — bearing walls: up to 10 ft tall (laterally unsupported), max 24 in o.c. supporting a roof and ceiling only, max 24 in o.c. supporting one floor plus roof and ceiling, max 24 in o.c. supporting one floor only; non-bearing walls: up to 16 ft tall, max 24 in o.c.. 2x6 studs — bearing walls: up to 10 ft tall (laterally unsupported), max 24 in o.c. supporting a roof and ceiling only, max 24 in o.c. supporting one floor plus roof and ceiling, max 16 in o.c. supporting two floors plus roof and ceiling, max 24 in o.c. supporting one floor only; non-bearing walls: up to 20 ft tall, max 24 in o.c.."
+  },
+  {
+    "city": "Seattle",
+    "state": "WA",
+    "code": "Seattle RC R602.3",
+    "section": "R602.3",
+    "topic": "wood stud spacing",
+    "text": "Per Seattle RC Table R602.3(5), wood studs in load-bearing walls are spaced a maximum of 16 inches on center for the common case of a 2x4 stud supporting one floor plus a roof-ceiling assembly. Lighter loads (roof and ceiling only) and larger studs such as 2x6 may be spaced up to 24 inches on center. Laterally unsupported bearing-wall studs are limited to about 10 feet in height. Non-bearing wall studs may be spaced up to 24 inches on center (up to 14 feet for 2x4). Utility-grade studs are limited to 16 inches on center. Whether 16 or 24 inches applies depends on stud size, wall height, and the loads carried."
+  }
+]
