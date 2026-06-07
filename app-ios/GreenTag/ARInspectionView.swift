@@ -141,11 +141,19 @@ struct ARInspectionView: UIViewRepresentable {
         }
 
         private func worldPoint(at screenPoint: CGPoint, in arView: ARView) -> SIMD3<Float>? {
-            guard let result = arView.raycast(
+            let verticalQuery = arView.raycast(
+                from: screenPoint,
+                allowing: .estimatedPlane,
+                alignment: .vertical
+            ).first
+
+            let fallbackQuery = arView.raycast(
                 from: screenPoint,
                 allowing: .estimatedPlane,
                 alignment: .any
-            ).first else {
+            ).first
+
+            guard let result = verticalQuery ?? fallbackQuery else {
                 return nil
             }
 
@@ -243,11 +251,18 @@ struct ARInspectionView: UIViewRepresentable {
                 return .zero
             }
 
+            let scale = max(viewSize.width / imageSize.width, viewSize.height / imageSize.height)
+            let scaledImageSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+            let offset = CGPoint(
+                x: (viewSize.width - scaledImageSize.width) / 2,
+                y: (viewSize.height - scaledImageSize.height) / 2
+            )
+
             return CGRect(
-                x: frame.minX * viewSize.width / imageSize.width,
-                y: frame.minY * viewSize.height / imageSize.height,
-                width: frame.width * viewSize.width / imageSize.width,
-                height: frame.height * viewSize.height / imageSize.height
+                x: frame.minX * scale + offset.x,
+                y: frame.minY * scale + offset.y,
+                width: frame.width * scale,
+                height: frame.height * scale
             )
         }
     }

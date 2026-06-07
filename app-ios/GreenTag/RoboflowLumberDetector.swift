@@ -38,6 +38,7 @@ enum RoboflowLumberDetectorConfiguration {
     static let modelVersion = 4
     static let modelOutputThreshold = 0.05
     static let defaultMinimumConfidence = 0.50
+    static let minimumVerticalAspectRatio = 1.15
 }
 
 @MainActor
@@ -119,6 +120,12 @@ final class RoboflowLumberDetector {
                 return nil
             }
 
+            guard isVerticalStudFrame(object.box) else {
+                printDetection(object, accepted: false, reason: "not_vertical")
+                debugDetections.append(debugDetection(from: object, accepted: false, reason: "not_vertical"))
+                return nil
+            }
+
             printDetection(object, accepted: true, reason: "accepted")
             debugDetections.append(debugDetection(from: object, accepted: true, reason: "accepted"))
 
@@ -194,6 +201,12 @@ final class RoboflowLumberDetector {
                 return nil
             }
 
+            guard isVerticalStudFrame(frame) else {
+                printHostedDetection(prediction, frame: frame, accepted: false, reason: "not_vertical")
+                debugDetections.append(debugDetection(from: prediction, frame: frame, accepted: false, reason: "not_vertical"))
+                return nil
+            }
+
             printHostedDetection(prediction, frame: frame, accepted: true, reason: "accepted")
             debugDetections.append(debugDetection(from: prediction, frame: frame, accepted: true, reason: "accepted"))
 
@@ -206,6 +219,11 @@ final class RoboflowLumberDetector {
 
         print("Roboflow hosted detections accepted_lumber_count=\(lumberDetections.count)")
         return RoboflowDetectionResult(acceptedLumber: lumberDetections, debugDetections: debugDetections)
+    }
+
+    private func isVerticalStudFrame(_ frame: CGRect) -> Bool {
+        guard frame.width > 0 else { return false }
+        return frame.height / frame.width >= RoboflowLumberDetectorConfiguration.minimumVerticalAspectRatio
     }
 
     private func printDetection(_ object: RFObjectDetectionPrediction, accepted: Bool, reason: String) {
