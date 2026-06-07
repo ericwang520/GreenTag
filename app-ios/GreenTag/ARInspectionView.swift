@@ -89,7 +89,7 @@ struct ARInspectionView: UIViewRepresentable {
         private var lockedSegments: [LumberMeasurementSegment] = []
         private var lastDetectionTime: CFTimeInterval = 0
         private var lastDetectionTransform: simd_float4x4?
-        private let requiredPairConfirmations = 1
+        private let requiredPairConfirmations = 2
         private let pairStabilityTolerance: CGFloat = 60
         private let minimumDetectionInterval: CFTimeInterval = 1.2
         private let cameraTranslationThreshold: Float = 0.08
@@ -154,15 +154,16 @@ struct ARInspectionView: UIViewRepresentable {
                 detectLumberIfNeeded(in: arView)
             }
 
-            guard confirmedPair != nil else {
-                onMeasurementUpdated(0, 0)
-                onMeasurementSegmentsUpdated([])
-                return
-            }
-
             if let lockedMeasurement, !lockedSegments.isEmpty {
                 onMeasurementUpdated(lockedMeasurement.spacingIn, lockedMeasurement.confidence)
                 onMeasurementSegmentsUpdated(lockedSegments)
+                return
+            }
+
+            let canShowProvisional = candidatePair != nil || confirmedPair != nil
+            guard canShowProvisional else {
+                onMeasurementUpdated(0, 0)
+                onMeasurementSegmentsUpdated([])
                 return
             }
 
@@ -173,10 +174,13 @@ struct ARInspectionView: UIViewRepresentable {
                 return
             }
 
-            lockedSegments = segments
-            lockedMeasurement = (primarySegment.spacingIn, primarySegment.confidence)
             onMeasurementUpdated(primarySegment.spacingIn, primarySegment.confidence)
             onMeasurementSegmentsUpdated(segments)
+
+            if confirmedPair != nil {
+                lockedSegments = segments
+                lockedMeasurement = (primarySegment.spacingIn, primarySegment.confidence)
+            }
         }
 
         private func worldPoint(at screenPoint: CGPoint, in arView: ARView) -> SIMD3<Float>? {
