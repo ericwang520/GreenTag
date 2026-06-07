@@ -39,7 +39,10 @@ enum SpacingPreviewStatus {
 
 struct StudSpacingPreview {
     static let defaultMaxSpacingInches = 16.0
-    static let defaultToleranceInches = 1.0
+    // Slack on the comparison, in inches, to absorb measurement noise. Matches
+    // the agent's SPACING_TOLERANCE_IN (events.py) so the on-device card and the
+    // spoken verdict never disagree.
+    static let defaultToleranceInches = 0.5
 
     let measuredInches: Double
     let targetInches: Double
@@ -55,43 +58,28 @@ struct StudSpacingPreview {
         self.toleranceInches = toleranceInches
     }
 
-    var deltaInches: Double {
-        measuredInches - targetInches
-    }
-
-    var absoluteDeltaInches: Double {
-        abs(deltaInches)
-    }
-
-    var minAllowedInches: Double {
-        targetInches - toleranceInches
-    }
-
     var maxAllowedInches: Double {
         targetInches + toleranceInches
     }
 
+    /// "Max 16 on center" is an upper bound: tighter spacing (more studs) is
+    /// compliant. Mirrors the agent's evaluate_compliance (spacing <= max + tol),
+    /// so a 14-inch reading passes here exactly as it does in the voice verdict.
     var passesWithTolerance: Bool {
-        measuredInches >= minAllowedInches && measuredInches <= maxAllowedInches
+        measuredInches <= maxAllowedInches
     }
 
     var status: SpacingPreviewStatus {
-        if passesWithTolerance {
-            return .likelyOnLayout
-        }
-
-        return .likelyOffLayout
+        passesWithTolerance ? .likelyOnLayout : .likelyOffLayout
     }
 
     var detailText: String {
         if passesWithTolerance {
-            return String(format: "%.2f in from %.0f in target", absoluteDeltaInches, targetInches)
+            if measuredInches <= targetInches {
+                return String(format: "%.2f in under the %.0f in limit", targetInches - measuredInches, targetInches)
+            }
+            return String(format: "%.2f in over %.0f in, within tolerance", measuredInches - targetInches, targetInches)
         }
-
-        if measuredInches < minAllowedInches {
-            return String(format: "%.2f in short of %.0f in +/- %.0f in", minAllowedInches - measuredInches, targetInches, toleranceInches)
-        }
-
-        return String(format: "%.2f in over %.0f in +/- %.0f in", measuredInches - maxAllowedInches, targetInches, toleranceInches)
+        return String(format: "%.2f in over the %.0f in limit", measuredInches - targetInches, targetInches)
     }
 }

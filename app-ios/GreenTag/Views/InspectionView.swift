@@ -51,7 +51,7 @@ struct InspectionView: View {
         case .connected:
             if voice.muted { "Muted — tap the mic to talk" }
             else if voice.agentState == .speaking { "Inspector speaking…" }
-            else { "Listening — say “Hey GreenTag” to ask" }
+            else { "Listening — just ask, like “is this one okay?”" }
         case .failed: "Voice offline — showing on-device preview"
         }
     }
@@ -108,6 +108,9 @@ struct InspectionView: View {
                     guard verdict == nil else { return }
                     spacingIn = spacing
                     confidence = conf
+                    // Keep the agent's live reading fresh so "is this one ok?"
+                    // works hands-free, before any lock tap. Throttled in-session.
+                    streamReadingToAgent(spacing: spacing, confidence: conf)
                 },
                 onMeasurementSegmentsUpdated: { segments in
                     guard verdict == nil else { return }
@@ -339,7 +342,13 @@ struct InspectionView: View {
 
     private func runCheck() {
         guard hasConfirmedMeasurement, verdict == nil else { return }
-        let observation = makeObservation()
+        // announce=true: this tap asks the agent to speak the verdict out loud.
+        let observation = makeObservation(
+            observationID: appModel.nextObservationID(),
+            spacingIn: spacingIn,
+            confidence: confidence,
+            announce: true
+        )
         let result = FramingCodePreview.verdict(spacingIn: spacingIn, confidence: confidence)
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
             verdict = result
@@ -349,15 +358,35 @@ struct InspectionView: View {
         Task { await voice.send(observation) }
     }
 
-    private func makeObservation() -> FieldObservation {
+    /// Push the live reading to the agent silently (announce=false) so its
+    /// get_current_reading tool is always current — this is what lets the
+    /// contractor just point and ask, no button. Throttled inside the session.
+    private func streamReadingToAgent(spacing: Double, confidence conf: Double) {
+        guard voice.isConnected, conf >= minimumConfidence, spacing > 0 else { return }
+        let observation = makeObservation(
+            observationID: "obs_ios_live",
+            spacingIn: spacing,
+            confidence: conf,
+            announce: false
+        )
+        Task { await voice.streamReading(observation, spacingIn: spacing) }
+    }
+
+    private func makeObservation(
+        observationID: String,
+        spacingIn: Double,
+        confidence: Double,
+        announce: Bool
+    ) -> FieldObservation {
         FieldObservation(
-            observationID: appModel.nextObservationID(),
+            observationID: observationID,
             inspectionItem: kind.rawValue,
             location: ObservationLocation(city: appModel.jobSite.city, state: appModel.jobSite.state),
             measurement: ObservationMeasurement(spacingIn: spacingIn, confidence: confidence),
             detections: lumberDetections.map {
                 ObservationDetection(objectClass: $0.className, confidence: $0.confidence)
-            }
+            },
+            announce: announce
         )
     }
 
@@ -454,7 +483,7 @@ struct AgentVoiceIndicator: View {
         switch state {
         case .offline: return "Reconnecting…"
         case .connecting: return "Bringing the inspector on the line…"
-        case .listening: return "Say “Hey GreenTag” to ask about the code"
+        case .listening: return "Just ask — “is this one okay?”"
         case .thinking: return "Looking up the local requirement…"
         case .speaking: return "…"
         }

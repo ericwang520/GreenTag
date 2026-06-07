@@ -186,6 +186,27 @@ final class VoiceAgentSession: ObservableObject {
         try? await room.localParticipant.publish(data: data, options: options)
     }
 
+    /// Throttle state for the continuous live stream (below).
+    private var lastStreamSpacing: Double?
+    private var lastStreamAt = Date.distantPast
+
+    /// Continuously feed the agent the live reading so its get_current_reading
+    /// tool is always fresh — without a button tap. Throttled so we don't flood
+    /// the data channel: send only on a meaningful spacing change or every ~1.5s.
+    /// `observation` must carry announce=false so the agent updates state silently
+    /// (no spoken narration on every frame); the explicit lock tap sends
+    /// announce=true to trigger the proactive verdict.
+    func streamReading(_ observation: FieldObservation, spacingIn: Double) async {
+        guard phase == .connected else { return }
+        let now = Date()
+        let movedEnough = lastStreamSpacing.map { abs($0 - spacingIn) >= 0.25 } ?? true
+        let dueByTime = now.timeIntervalSince(lastStreamAt) >= 1.5
+        guard movedEnough || dueByTime else { return }
+        lastStreamSpacing = spacingIn
+        lastStreamAt = now
+        await send(observation)
+    }
+
     // MARK: - Connection details
 
     private struct ConnectionDetails: Decodable {

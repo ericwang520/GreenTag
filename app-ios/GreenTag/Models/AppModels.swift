@@ -109,9 +109,27 @@ enum FramingCodePreview {
     static let citation = "IRC R602.3(5)"
     static let clause =
         "Studs shall be spaced not more than 16 inches on center (24 inches on center is permitted for certain assemblies)."
+    // Below this measurement confidence the agent says "re-aim" instead of ruling
+    // (events.py LOW_CONFIDENCE_THRESHOLD). The card mirrors that so it never
+    // shows a pass/fail the voice won't back up.
+    static let minConfidence = 0.85
 
     static func verdict(spacingIn: Double, confidence: Double) -> Verdict {
         let preview = StudSpacingPreview(measuredInches: spacingIn)
+
+        // Low confidence: don't rule — ask for a re-aim, matching the voice agent.
+        guard confidence >= minConfidence else {
+            return Verdict(
+                status: .review,
+                headline: "Low confidence — re-aim and hold steady",
+                detail: "Reading is approximate; rescan before relying on it.",
+                citation: citation,
+                clause: clause,
+                spacingIn: spacingIn,
+                confidence: confidence,
+                isPreview: true
+            )
+        }
 
         let status: VerdictStatus = preview.passesWithTolerance ? .pass : .fail
 
