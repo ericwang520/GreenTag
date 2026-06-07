@@ -78,7 +78,7 @@ struct ARInspectionView: UIViewRepresentable {
         private var lockedMeasurement: (spacingIn: Double, confidence: Double)?
         private var lastDetectionTime: CFTimeInterval = 0
         private var lastDetectionTransform: simd_float4x4?
-        private let requiredPairConfirmations = 2
+        private let requiredPairConfirmations = 1
         private let pairStabilityTolerance: CGFloat = 60
         private let minimumDetectionInterval: CFTimeInterval = 1.2
         private let cameraTranslationThreshold: Float = 0.08
