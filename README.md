@@ -1,5 +1,7 @@
 # GreenTag — AI inspector for the construction site.
 
-"GreenTag is the AI inspector for the construction site — it checks work against local building codes in real time and catches violations before the official inspection, so contractors pass the first time."
+[GreenTag](https://github.com/ericwang520/GreenTag) is the AI inspector for the construction site — it checks work against local building codes in real time and catches violations before the official inspection, so contractors pass the first time.
+
+## Feature
 
 YC Conversational AI Hackathon 2026/6/6-7 · Eric × Xiya
