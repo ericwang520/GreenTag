@@ -92,7 +92,7 @@ struct ARInspectionView: UIViewRepresentable {
             detector = nil
             screenDetections = []
             onDetectionsUpdated([])
-            onDetectorStatusUpdated(normalizedKey.isEmpty ? "Guide points" : "Roboflow ready")
+            onDetectorStatusUpdated(normalizedKey.isEmpty ? "Missing Roboflow key" : "Roboflow ready")
         }
 
         func startMeasuring() {
@@ -172,7 +172,8 @@ struct ARInspectionView: UIViewRepresentable {
         private func detectLumberIfNeeded(in arView: ARView) {
             let apiKey = roboflowAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !apiKey.isEmpty else {
-                onDetectorStatusUpdated("Guide points")
+                print("Roboflow disabled: ROBOFLOW_API_KEY is empty. Create app-ios/Config/Secrets.xcconfig.")
+                onDetectorStatusUpdated("Missing Roboflow key")
                 return
             }
 

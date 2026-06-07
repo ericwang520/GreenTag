@@ -61,7 +61,7 @@ struct ContentView: View {
     @State private var agentEndpoint = "http://127.0.0.1:8000/events"
     @State private var publishStatus = "Not sent"
     @State private var isPublishing = false
-    @State private var roboflowStatus = "Loading vision"
+    @State private var roboflowStatus = AppSecrets.roboflowAPIKey.isEmpty ? "Missing Roboflow key" : "Loading vision"
     @State private var lumberDetections: [LumberDetection] = []
     @State private var minimumConfidence = RoboflowLumberDetectorConfiguration.defaultMinimumConfidence
     @State private var debugFrame: RoboflowDebugFrame?
