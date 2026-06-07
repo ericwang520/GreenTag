@@ -9,6 +9,7 @@ deprecated/
 /GreenTag.xcodeproj/
 DerivedData/
 app-ios/DerivedData/
+app-ios/build/
 app-ios/Config/Secrets.xcconfig
 *.xcuserdata/
 **/xcuserdata/

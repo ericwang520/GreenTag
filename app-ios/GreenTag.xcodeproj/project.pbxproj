@@ -12,8 +12,10 @@
 		2101ED37C0920F296BCEB7AA /* FieldObservation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3F3E8B306E9F7F5B8C62A15 /* FieldObservation.swift */; };
 		22A5AE742DA68358F3140829 /* MeasurementModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8957C5A22022F14C1762F9D8 /* MeasurementModels.swift */; };
 		23725F19E826B84DEDDDA104 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 434CEC43DA6FF5570DB56310 /* AppModel.swift */; };
+		25B781EB7193508E2E8B2E63 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2F80DB27A899CAF0A336A0F2 /* LiveKit */; };
 		2B2189630FD1236271BE50FC /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB92BD1D03314BE62F64B45 /* HomeView.swift */; };
 		3C839F05B7A8691E26BD4028 /* AppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9914588065AAC340888E3F7F /* AppModels.swift */; };
+		41ECDCC5EEABFD0CA89F65C3 /* VoiceAgentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F67035AAA157BC79BDEA583 /* VoiceAgentSession.swift */; };
 		470802EA45F3467C68A0D72C /* GreenTagApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */; };
 		4A6815184C3DCE033B5FA146 /* VerdictCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E252E28F61E7E1A6F0933C /* VerdictCard.swift */; };
 		53CD6E2076990B79976DFABA /* AppSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C648A862DF4BF53159F2BC9 /* AppSecrets.swift */; };
@@ -38,6 +40,7 @@
 /* Begin PBXFileReference section */
 		17E252E28F61E7E1A6F0933C /* VerdictCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerdictCard.swift; sourceTree = "<group>"; };
 		2C2B6608CFF8DD86E5148178 /* GreenTagApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreenTagApp.swift; sourceTree = "<group>"; };
+		3F67035AAA157BC79BDEA583 /* VoiceAgentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAgentSession.swift; sourceTree = "<group>"; };
 		434CEC43DA6FF5570DB56310 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		441754DAAF2572F6BD3FF752 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		6471D2AF7ED0FC139D99210C /* InspectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectionView.swift; sourceTree = "<group>"; };
@@ -63,6 +66,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5E0361D0B333E15ECC37AAFE /* Roboflow in Frameworks */,
+				25B781EB7193508E2E8B2E63 /* LiveKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -110,6 +114,7 @@
 				434CEC43DA6FF5570DB56310 /* AppModel.swift */,
 				9914588065AAC340888E3F7F /* AppModels.swift */,
 				B3F3E8B306E9F7F5B8C62A15 /* FieldObservation.swift */,
+				3F67035AAA157BC79BDEA583 /* VoiceAgentSession.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -160,6 +165,7 @@
 			name = GreenTag;
 			packageProductDependencies = (
 				720366AE59C3E0CBE48CA710 /* Roboflow */,
+				2F80DB27A899CAF0A336A0F2 /* LiveKit */,
 			);
 			productName = GreenTag;
 			productReference = DEB61932B04FC1402EE4950A /* GreenTag.app */;
@@ -207,6 +213,7 @@
 			mainGroup = A225CA100AEED8539C908501;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				A92F7580FCA9BA8CA7C508B5 /* XCRemoteSwiftPackageReference "client-sdk-swift" */,
 				74533302CF70A4CA3BCA9A7D /* XCRemoteSwiftPackageReference "roboflow-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -249,6 +256,7 @@
 				9FDB2E7EBEB119C5D4B56B7B /* RoboflowLumberDetector.swift in Sources */,
 				0BA9BBBF6471B40913BA278E /* Theme.swift in Sources */,
 				4A6815184C3DCE033B5FA146 /* VerdictCard.swift in Sources */,
+				41ECDCC5EEABFD0CA89F65C3 /* VoiceAgentSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -509,9 +517,22 @@
 				version = 1.2.7;
 			};
 		};
+		A92F7580FCA9BA8CA7C508B5 /* XCRemoteSwiftPackageReference "client-sdk-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/livekit/client-sdk-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.14.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		2F80DB27A899CAF0A336A0F2 /* LiveKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A92F7580FCA9BA8CA7C508B5 /* XCRemoteSwiftPackageReference "client-sdk-swift" */;
+			productName = LiveKit;
+		};
 		720366AE59C3E0CBE48CA710 /* Roboflow */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 74533302CF70A4CA3BCA9A7D /* XCRemoteSwiftPackageReference "roboflow-swift" */;

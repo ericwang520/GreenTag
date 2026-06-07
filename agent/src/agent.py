@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 import os
 import sys
@@ -6,6 +8,7 @@ from pathlib import Path
 
 from aiohttp import web
 from dotenv import load_dotenv
+from livekit import rtc
 from livekit.agents import (
     Agent,
     AgentServer,
@@ -24,6 +27,7 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from events import (
     EventDispatcher,
     FieldObservation,
+    ObservationError,
     build_announcement,
     make_events_app,
     requirement_from_chunks,
@@ -37,6 +41,11 @@ load_dotenv(".env.local")
 # field_observation events here and the agent announces them out loud.
 EVENTS_PORT = int(os.getenv("EVENTS_PORT", "8088"))
 EVENTS_HOST = os.getenv("EVENTS_HOST", "0.0.0.0")
+
+# LiveKit data-channel topic the iOS app publishes field observations on. This
+# is the primary in-room ingress (no LAN IP needed); HTTP /events is kept for
+# the browser map and curl testing. Both funnel into the same EventDispatcher.
+FIELD_OBSERVATION_TOPIC = "field_observation"
 
 # Bridge to Eric's backend package (a sibling uv project, not pip-installed) so
 # the agent can call his Moss retrieval in-process — the design he documented in
@@ -74,23 +83,32 @@ async def _lookup_code_chunks(obs: FieldObservation) -> list[dict] | None:
         return None
 
 
-async def _start_events_server(ctx: JobContext, session: AgentSession) -> None:
-    """Run the /events HTTP server bound to this session for its lifetime.
+def _make_speak(session: AgentSession):
+    """Build the speak callback that makes `session` announce an observation.
 
-    Lives in the same job process as `session`, so the speak callback can call
-    `session.generate_reply` directly. Torn down on job shutdown.
+    Retrieves the applicable clause from Eric's Moss index, then shapes it into
+    what the agent says. Both calls are failure-tolerant (see schema.md: never
+    substitute a guessed standard). `generate_reply` runs the LLM then TTS.
     """
 
     async def speak(obs: FieldObservation) -> None:
-        # Retrieve the applicable clause from Eric's Moss index, then shape it
-        # into what the agent announces. Both calls are failure-tolerant.
         chunks = await _lookup_code_chunks(obs)
         code = requirement_from_chunks(chunks)
         user_input, instructions = build_announcement(obs, code)
-        # generate_reply runs the LLM then TTS, so the agent proactively speaks.
         session.generate_reply(user_input=user_input, instructions=instructions)
 
-    app = make_events_app(EventDispatcher(speak))
+    return speak
+
+
+async def _start_events_server(ctx: JobContext, dispatcher: EventDispatcher) -> None:
+    """Run the /events HTTP server bound to this session for its lifetime.
+
+    Lives in the same job process as the session, so the dispatcher's speak
+    callback can call `session.generate_reply` directly. Torn down on job
+    shutdown. Shares the dispatcher (and its dedup set) with the data-channel
+    ingress so the same observation is never announced twice.
+    """
+    app = make_events_app(dispatcher)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, EVENTS_HOST, EVENTS_PORT)
@@ -101,6 +119,43 @@ async def _start_events_server(ctx: JobContext, session: AgentSession) -> None:
         await runner.cleanup()
 
     ctx.add_shutdown_callback(_shutdown)
+
+
+async def _dispatch_safely(dispatcher: EventDispatcher, payload: object) -> None:
+    """Dispatch one decoded observation, swallowing bad payloads."""
+    try:
+        await dispatcher.dispatch(payload)
+    except ObservationError as e:
+        logger.warning("ignoring field observation from data channel: %s", e)
+    except Exception:
+        logger.exception("failed to dispatch field observation from data channel")
+
+
+def _register_data_ingress(ctx: JobContext, dispatcher: EventDispatcher) -> None:
+    """Announce field observations the iOS app publishes over the data channel.
+
+    The handler is thin glue: filter by topic, decode JSON, hand off to the same
+    `EventDispatcher` the HTTP path uses. Must be registered before `ctx.connect`
+    so no early packets are missed.
+    """
+
+    # Hold a strong reference to each in-flight dispatch task; the event loop only
+    # keeps a weak ref, so without this the coroutine can be GC'd mid-flight and
+    # the observation is silently never announced.
+    pending: set[asyncio.Task] = set()
+
+    @ctx.room.on("data_received")
+    def _on_data(packet: rtc.DataPacket) -> None:
+        if packet.topic != FIELD_OBSERVATION_TOPIC:
+            return
+        try:
+            payload = json.loads(packet.data.decode("utf-8"))
+        except Exception:
+            logger.warning("field observation data packet was not valid JSON")
+            return
+        task = asyncio.create_task(_dispatch_safely(dispatcher, payload))
+        pending.add(task)
+        task.add_done_callback(pending.discard)
 
 
 class Assistant(Agent):
@@ -268,9 +323,17 @@ async def my_agent(ctx: JobContext):
     # # Start the avatar and wait for it to join
     # await avatar.start(session, room=ctx.room)
 
-    # Start the /events ingress so vision can push field observations that the
-    # agent announces proactively (see schema.md).
-    await _start_events_server(ctx, session)
+    # One dispatcher (dedup + code lookup + speak) shared by both ingress paths:
+    # the in-room data channel (primary, from iOS) and HTTP /events (browser map
+    # / curl). See schema.md for the FieldObservation contract.
+    dispatcher = EventDispatcher(_make_speak(session))
+
+    # Register the data-channel handler before connecting so no early packets
+    # are missed once the inspector joins.
+    _register_data_ingress(ctx, dispatcher)
+
+    # Start the HTTP /events ingress for the same dispatcher.
+    await _start_events_server(ctx, dispatcher)
 
     # Join the room and connect to the user
     await ctx.connect()

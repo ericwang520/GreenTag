@@ -11,15 +11,23 @@ Run:
 """
 from __future__ import annotations
 
+import os
+import secrets
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from livekit import api as lkapi
 
 from ..ingest.pipeline import ingest_uploaded
 from ..moss_codes import lookup_code
 from ..registry import list_cities
+
+# The voice worker registers under this name (see agent/src/agent.py
+# `@server.rtc_session(agent_name=...)`). Because the agent uses a name, it is
+# only dispatched when a token explicitly requests it — which this endpoint does.
+AGENT_NAME = "my-agent"
 
 app = FastAPI(title="GreenTag Codes API", version="0.1.0")
 
@@ -35,6 +43,57 @@ app.add_middleware(
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/connection-details")
+async def connection_details(
+    room: str | None = Query(None, description="room name (generated if omitted)"),
+    identity: str | None = Query(None, description="participant identity (generated if omitted)"),
+) -> dict:
+    """Mint a LiveKit access token for the iOS app and dispatch the voice agent.
+
+    The token carries a RoomConfiguration that dispatches the named agent into
+    the room, so the inspector hears the agent as soon as they connect. Keys
+    never leave the server — the app only receives a short-lived JWT.
+    """
+    url = os.environ.get("LIVEKIT_URL")
+    api_key = os.environ.get("LIVEKIT_API_KEY")
+    api_secret = os.environ.get("LIVEKIT_API_SECRET")
+    if not (url and api_key and api_secret):
+        raise HTTPException(
+            500, "LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET not configured."
+        )
+
+    room_name = room or f"greentag-{secrets.token_hex(4)}"
+    user_identity = identity or f"inspector-{secrets.token_hex(3)}"
+
+    token = (
+        lkapi.AccessToken(api_key, api_secret)
+        .with_identity(user_identity)
+        .with_name("Inspector")
+        .with_grants(
+            lkapi.VideoGrants(
+                room_join=True,
+                room=room_name,
+                can_publish=True,
+                can_subscribe=True,
+                can_publish_data=True,
+            )
+        )
+        .with_room_config(
+            lkapi.RoomConfiguration(
+                agents=[lkapi.RoomAgentDispatch(agent_name=AGENT_NAME)]
+            )
+        )
+        .to_jwt()
+    )
+
+    return {
+        "serverUrl": url,
+        "roomName": room_name,
+        "participantName": user_identity,
+        "participantToken": token,
+    }
 
 
 @app.get("/codes/cities")

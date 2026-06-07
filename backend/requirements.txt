@@ -6,6 +6,7 @@ uvicorn[standard]    # ASGI server for the API
 python-multipart     # multipart form uploads (PDF upload endpoint)
 python-dotenv        # load secrets from repo-root .env
 requests             # Unsiloed REST calls (offline ingest)
+livekit-api          # mint LiveKit tokens (/connection-details) + agent dispatch
 # --- voice agent (added when wiring the LiveKit worker) ---
 # livekit
 # livekit-agents

@@ -11,6 +11,9 @@ packages:
   Roboflow:
     url: https://github.com/roboflow/roboflow-swift
     exactVersion: "1.2.7"
+  LiveKit:
+    url: https://github.com/livekit/client-sdk-swift
+    from: "2.14.1"
 targets:
   GreenTag:
     type: application
@@ -23,6 +26,7 @@ targets:
       - Assets.xcassets
     dependencies:
       - package: Roboflow
+      - package: LiveKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.greentag.GreenTag
@@ -35,6 +39,7 @@ targets:
       path: GreenTag/Info.plist
       properties:
         NSCameraUsageDescription: GreenTag uses the camera with ARKit to measure framing spacing during inspections.
+        NSMicrophoneUsageDescription: GreenTag uses the microphone so you can talk with the AI inspector about code.
         NSLocalNetworkUsageDescription: GreenTag connects to the local hackathon agent during demos.
         ROBOFLOW_API_KEY: $(ROBOFLOW_API_KEY)
         NSAppTransportSecurity:
