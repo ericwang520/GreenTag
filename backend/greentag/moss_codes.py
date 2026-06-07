@@ -51,19 +51,21 @@ def chunks_to_documents(chunks: list[dict]) -> list[DocumentInfo]:
     """
     docs: list[DocumentInfo] = []
     for i, c in enumerate(chunks):
-        docs.append(
-            DocumentInfo(
-                id=_doc_id(c, i),
-                text=c["text"],
-                metadata={
-                    "city": c["city"],
-                    "state": c["state"],
-                    "code": c["code"],
-                    "section": c.get("section", ""),
-                    "topic": c.get("topic", "wood stud spacing"),
-                },
-            )
-        )
+        metadata = {
+            "city": c["city"],
+            "state": c["state"],
+            "code": c["code"],
+            "section": c.get("section", ""),
+            "topic": c.get("topic", "wood stud spacing"),
+        }
+        # Per-city structured spacing fields (present on the R602.3(5) chunk).
+        # Moss metadata values must be strings, so the int is stored as text.
+        if c.get("default_max_spacing_in") is not None:
+            metadata["default_max_spacing_in"] = str(c["default_max_spacing_in"])
+        if c.get("spacing_json"):
+            metadata["spacing_json"] = c["spacing_json"]
+
+        docs.append(DocumentInfo(id=_doc_id(c, i), text=c["text"], metadata=metadata))
     return docs
 
 

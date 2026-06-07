@@ -8,18 +8,23 @@ import json
 
 import re
 
-from ..config import CHUNKS_PATH, CODES_RAW_DIR
+from ..config import CHUNKS_PATH, CODES_RAW_DIR, SPACING_PATH
 from ..moss_codes import ingest_codes, lookup_code
-from ..registry import upsert_city_chunks
+from ..registry import upsert_city_chunks, upsert_spacing_entry
 from ..unsiloed import iter_segments, parse_pdf
-from .chunking import build_chunks
+from .chunking import build_chunks, build_spacing_entry
 from .extract import stud_segment_count
 from .sources import SOURCES, Source, active_sources
 
 
-def build_all_chunks(*, force_parse: bool = False) -> tuple[list[dict], dict]:
-    """Parse every active source and build chunks. Returns (chunks, report)."""
+def build_all_chunks(*, force_parse: bool = False) -> tuple[list[dict], dict, dict]:
+    """Parse every active source. Returns (chunks, spacing_table, report).
+
+    chunks        prose for voice RAG
+    spacing_table {city: structured R602.3(5)} for the AR overlay
+    """
     chunks: list[dict] = []
+    spacing_table: dict = {}
     report: dict = {"per_city": {}, "skipped": [], "stud_segments": {}}
 
     for source in SOURCES:
@@ -31,11 +36,14 @@ def build_all_chunks(*, force_parse: bool = False) -> tuple[list[dict], dict]:
         body = parse_pdf(source.path, source.cache_key, force=force_parse)
         segments = list(iter_segments(body))
         report["stud_segments"][source.city] = stud_segment_count(segments)
-        city_chunks = build_chunks(source, segments)
+        entry = build_spacing_entry(source, segments)  # AI parse once
+        if entry:
+            spacing_table[source.city] = entry
+        city_chunks = build_chunks(source, segments, spacing_entry=entry)
         chunks.extend(city_chunks)
         report["per_city"][source.city] = len(city_chunks)
 
-    return chunks, report
+    return chunks, spacing_table, report
 
 
 def _slug(text: str) -> str:
@@ -58,16 +66,29 @@ async def ingest_uploaded(
 
     source = Source(pdf_path.name, city, state, code_base, f"upload_{slug}")
     body = parse_pdf(pdf_path, source.cache_key, force=True)
-    chunks = build_chunks(source, list(iter_segments(body)))
+    segments = list(iter_segments(body))
+    entry = build_spacing_entry(source, segments)  # AI parse once
+    chunks = build_chunks(source, segments, spacing_entry=entry)
 
     upsert_city_chunks(city, chunks)
     await ingest_codes(chunks, rebuild=False)  # upsert into existing index
-    return {"city": city, "state": state, "chunks": len(chunks)}
+    upsert_spacing_entry(city, entry)  # None removes any stale structured table
+
+    return {
+        "city": city, "state": state, "chunks": len(chunks),
+        "structured_table": entry is not None,
+        "default_max_spacing_in": entry.get("default_max_spacing_in") if entry else None,
+    }
 
 
 def write_chunks(chunks: list[dict]) -> None:
     CHUNKS_PATH.parent.mkdir(parents=True, exist_ok=True)
     CHUNKS_PATH.write_text(json.dumps(chunks, indent=2, ensure_ascii=False))
+
+
+def write_spacing(spacing_table: dict) -> None:
+    SPACING_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SPACING_PATH.write_text(json.dumps(spacing_table, indent=2, ensure_ascii=False))
 
 
 def _validate(chunks: list[dict]) -> list[str]:
@@ -96,10 +117,12 @@ def _validate(chunks: list[dict]) -> list[str]:
 
 async def run_ingest(*, force_parse: bool = False, rebuild: bool = True) -> dict:
     """Full pipeline. Returns a verification report dict (also prints it)."""
-    chunks, report = build_all_chunks(force_parse=force_parse)
+    chunks, spacing_table, report = build_all_chunks(force_parse=force_parse)
     write_chunks(chunks)
+    write_spacing(spacing_table)
 
     report["total_chunks"] = len(chunks)
+    report["spacing_cities"] = sorted(spacing_table)
     report["failures"] = _validate(chunks)
     report["chunks_path"] = str(CHUNKS_PATH)
 
@@ -109,6 +132,10 @@ async def run_ingest(*, force_parse: bool = False, rebuild: bool = True) -> dict
     # Live acceptance query: SF stud spacing should surface the 16" rule.
     sf_top = await lookup_code("San Francisco", "stud spacing for a load bearing wall")
     report["sf_query_top"] = sf_top[0] if sf_top else None
+
+    # Structured spacing: SF (no own table) must resolve to the IRC base 16".
+    from ..spacing import get_max_spacing
+    report["sf_max_spacing"] = get_max_spacing("San Francisco")
 
     _print_report(report)
     return report
@@ -125,6 +152,11 @@ def _print_report(r: dict) -> None:
         seg = r["stud_segments"].get(city, "?")
         print(f"  - {city:16s} {n} chunk(s)   ({seg} stud-related segments parsed)")
     print(f"\nskipped (never indexed): {r['skipped']}")
+    print(f"structured spacing tables: {r.get('spacing_cities')}")
+
+    sms = r.get("sf_max_spacing") or {}
+    print("\nSF structured spacing — get_max_spacing('San Francisco') [defaults: 2x4, bearing, one_floor_roof_ceiling]:")
+    print(f"  max_spacing_in={sms.get('max_spacing_in')}  via {sms.get('source_city')} {sms.get('code')}")
 
     print("\nSF acceptance query — lookup_code('San Francisco', 'stud spacing for a load bearing wall'):")
     top = r["sf_query_top"]
