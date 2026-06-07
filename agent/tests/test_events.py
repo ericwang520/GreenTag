@@ -8,28 +8,11 @@ from events import (
     EventDispatcher,
     ObservationError,
     build_announcement,
-    contains_wake_word,
     evaluate_compliance,
     make_events_app,
     parse_field_observation,
     requirement_from_chunks,
 )
-
-
-# --- wake word ---------------------------------------------------------------
-
-
-def test_wake_word_matches_variants() -> None:
-    assert contains_wake_word("Hey GreenTag, what's the max spacing?")
-    assert contains_wake_word("hey green tag")  # STT may split the word
-    assert contains_wake_word("OK GreenTag")
-    assert contains_wake_word("hey inspector, is this ok")
-
-
-def test_wake_word_absent_or_empty() -> None:
-    assert not contains_wake_word("just talking to my crew over here")
-    assert not contains_wake_word("")
-    assert not contains_wake_word(None)
 
 
 def _obs_payload(**overrides) -> dict:
