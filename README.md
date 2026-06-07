@@ -12,7 +12,7 @@
 
 ## The problem
 
-Framing studs have to sit **16″ on center** (24″ in some cases). If they're even half an inch off-code, the city inspector fails the job — and the crew tears the wall down and rebuilds it. That's days of labor and thousands of dollars in rework. And nobody finds out until the official inspection, when it's already too late.
+Framing studs have to sit **16″ on center** (24″ in some cases). If they're even half an inch off-code, the city inspector fails the job and the crew tears the wall down and rebuilds it. That's days of labor and thousands of dollars in rework. And nobody finds out until the official inspection, when it's already too late.
 
 ~170k+ U.S. residential contractors live with this risk on every job.
 
@@ -98,5 +98,3 @@ Built by **Eric × Xiya** at the **YC Conversational AI Hackathon**, June 6–7,
 Powered by **Moss · Unsiloed · LiveKit · Deepgram · MiniMax**.
 
 ---
-
-*GreenTag — pass the first time.*
