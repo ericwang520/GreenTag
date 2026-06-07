@@ -93,9 +93,9 @@ final class VoiceAgentSession: ObservableObject {
             let details = try await fetchConnectionDetails(roomName: roomName)
             try await room.connect(url: details.serverUrl, token: details.participantToken)
             phase = .connected
-            // Hands-free: open the mic so the agent can hear the wake word. The
-            // half-duplex rule below then closes it whenever the agent is
-            // speaking, which kills the speaker→mic echo loop.
+            // Hands-free: open the mic so the agent can hear you. The half-duplex
+            // rule below then closes it whenever the agent is speaking, which
+            // kills the speaker→mic echo loop.
             reconcileMic()
         } catch {
             phase = .failed(error.localizedDescription)

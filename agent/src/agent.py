@@ -16,11 +16,9 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     RunContext,
-    StopResponse,
     cli,
     function_tool,
     inference,
-    llm,
     room_io,
 )
 from livekit.plugins import ai_coustics, minimax, openai, silero
@@ -31,7 +29,6 @@ from events import (
     FieldObservation,
     ObservationError,
     build_announcement,
-    contains_wake_word,
     make_events_app,
     requirement_from_chunks,
 )
@@ -239,23 +236,6 @@ class Assistant(Agent):
                 """
             ),
         )
-        # Becomes True once the inspector says a wake word. Until then, user
-        # turns are dropped (StopResponse) so the agent never reacts to ambient
-        # chatter or its own echo. Proactive announcements are unaffected.
-        self._addressed = False
-
-    async def on_user_turn_completed(
-        self, turn_ctx: llm.ChatContext, new_message: llm.ChatMessage
-    ) -> None:
-        """Gate conversation on a wake word ("Hey GreenTag").
-
-        Once summoned, stays in the conversation for the rest of the session so
-        the inspector can ask follow-ups without repeating the wake word.
-        """
-        if self._addressed or contains_wake_word(new_message.text_content):
-            self._addressed = True
-            return
-        raise StopResponse()
 
     @function_tool
     async def lookup_building_code(

@@ -51,7 +51,7 @@ struct InspectionView: View {
         case .connected:
             if voice.muted { "Muted — tap the mic to talk" }
             else if voice.agentState == .speaking { "Inspector speaking…" }
-            else { "Listening — say “Hey GreenTag” to ask" }
+            else { "Listening — just ask about the code" }
         case .failed: "Voice offline — showing on-device preview"
         }
     }
@@ -454,7 +454,7 @@ struct AgentVoiceIndicator: View {
         switch state {
         case .offline: return "Reconnecting…"
         case .connecting: return "Bringing the inspector on the line…"
-        case .listening: return "Say “Hey GreenTag” to ask about the code"
+        case .listening: return "Ask about the code, or lock a measurement"
         case .thinking: return "Looking up the local requirement…"
         case .speaking: return "…"
         }

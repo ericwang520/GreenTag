@@ -33,28 +33,6 @@ SPACING_TOLERANCE_IN = 0.5
 # latency sane. The top chunk is the most relevant; the LLM judges from it.
 MAX_CLAUSE_CHARS = 600
 
-# Wake words that summon the agent into a conversation. Until it hears one, the
-# agent stays quiet on user speech (so site chatter / its own echo never makes
-# it answer) — proactive measurement announcements are unaffected. Matching is
-# substring + lowercased to tolerate STT spacing ("green tag") and punctuation.
-WAKE_WORDS = (
-    "hey greentag",
-    "hey green tag",
-    "ok greentag",
-    "okay greentag",
-    "greentag",
-    "green tag",
-    "hey inspector",
-)
-
-
-def contains_wake_word(text: str | None) -> bool:
-    """True if `text` contains any wake word (case-insensitive substring)."""
-    if not text:
-        return False
-    lowered = text.lower()
-    return any(word in lowered for word in WAKE_WORDS)
-
 
 @dataclass
 class CodeRequirement:
