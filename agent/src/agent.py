@@ -114,16 +114,6 @@ class Assistant(Agent):
                 model="MiniMax-M3",
                 base_url="https://api.minimax.io/v1",
                 api_key=os.getenv("MINIMAX_API_KEY"),
-                # M3 is a reasoning model: it emits its chain-of-thought inside a
-                # <think>...</think> block in the CONTENT channel. The SDK strips
-                # that block, but only on text-only deltas — when the closing
-                # </think> arrives in the same chunk as a tool call, the tool-call
-                # branch in _parse_choice returns early and the reasoning tail
-                # leaks into the spoken reply (TTS would say "The user is asking
-                # about..."). Disabling thinking removes the block entirely, which
-                # also cuts latency — both wins for a real-time voice agent. Tool
-                # calling is unaffected. MiniMax-specific; passed via extra_body.
-                extra_body={"thinking": {"type": "disabled"}},
             ),
             # To use a realtime model instead of a voice pipeline, replace the LLM
             # with a RealtimeModel and remove the STT/TTS from the AgentSession
