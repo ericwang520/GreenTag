@@ -1,6 +1,6 @@
 # GreenTag — Pokémon GO for AI Construction 🏗️
 
-[GreenTag](https://github.com/ericwang520/GreenTag) is the **AI inspector for the construction site** — it checks work against local building codes in real time and catches violations *before* the official inspection, so contractors pass the first time.
+[GreenTag](https://github.com/ericwang520/GreenTag) is the **AI inspector for the construction site** it checks work against local building codes in real time and catches violations *before* the official inspection, so contractors pass the first time.
 
 > Point your phone at the work. Ask out loud. GreenTag tells you if it's up to code — hands-free.
 
