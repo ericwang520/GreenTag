@@ -16,9 +16,11 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     RunContext,
+    StopResponse,
     cli,
     function_tool,
     inference,
+    llm,
     room_io,
 )
 from livekit.plugins import ai_coustics, minimax, openai, silero
@@ -29,6 +31,7 @@ from events import (
     FieldObservation,
     ObservationError,
     build_announcement,
+    contains_wake_word,
     make_events_app,
     requirement_from_chunks,
 )
@@ -112,7 +115,19 @@ async def _start_events_server(ctx: JobContext, dispatcher: EventDispatcher) -> 
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, EVENTS_HOST, EVENTS_PORT)
-    await site.start()
+    try:
+        await site.start()
+    except OSError as e:
+        # A concurrent session in this worker already holds the port. The data
+        # channel is the primary ingress now, so skip HTTP for this session
+        # rather than crashing the job (which would kill the voice link).
+        logger.warning(
+            "HTTP /events disabled for this session (port %d unavailable): %s",
+            EVENTS_PORT,
+            e,
+        )
+        await runner.cleanup()
+        return
     logger.info("events server listening on %s:%d/events", EVENTS_HOST, EVENTS_PORT)
 
     async def _shutdown() -> None:
@@ -169,6 +184,15 @@ class Assistant(Agent):
                 model="MiniMax-M3",
                 base_url="https://api.minimax.io/v1",
                 api_key=os.getenv("MINIMAX_API_KEY"),
+                # M3 is a reasoning model: it emits chain-of-thought inside a
+                # <think>...</think> block in the CONTENT channel. The SDK strips
+                # that block, but only on text-only deltas — when the closing
+                # </think> arrives in the same chunk as a tool call, the reasoning
+                # tail leaks into the spoken reply (TTS reads "the user is asking
+                # about…", and "<"/">" as "less/greater"). Disabling thinking
+                # removes the block entirely and cuts latency — both wins for a
+                # real-time voice agent. MiniMax-specific; passed via extra_body.
+                extra_body={"thinking": {"type": "disabled"}},
             ),
             # To use a realtime model instead of a voice pipeline, replace the LLM
             # with a RealtimeModel and remove the STT/TTS from the AgentSession
@@ -215,6 +239,23 @@ class Assistant(Agent):
                 """
             ),
         )
+        # Becomes True once the inspector says a wake word. Until then, user
+        # turns are dropped (StopResponse) so the agent never reacts to ambient
+        # chatter or its own echo. Proactive announcements are unaffected.
+        self._addressed = False
+
+    async def on_user_turn_completed(
+        self, turn_ctx: llm.ChatContext, new_message: llm.ChatMessage
+    ) -> None:
+        """Gate conversation on a wake word ("Hey GreenTag").
+
+        Once summoned, stays in the conversation for the rest of the session so
+        the inspector can ask follow-ups without repeating the wake word.
+        """
+        if self._addressed or contains_wake_word(new_message.text_content):
+            self._addressed = True
+            return
+        raise StopResponse()
 
     @function_tool
     async def lookup_building_code(

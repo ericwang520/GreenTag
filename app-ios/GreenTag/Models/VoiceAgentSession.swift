@@ -60,6 +60,9 @@ final class VoiceAgentSession: ObservableObject {
     @Published private(set) var agentState: AgentVoiceState = .offline
     @Published private(set) var agentTranscript: String = ""
     @Published private(set) var isMicEnabled = false
+    /// User-controlled mute. When true the mic stays closed regardless of the
+    /// auto half-duplex logic.
+    @Published var muted = false
 
     private let room = Room()
     private var agentIdentity: Participant.Identity?
@@ -83,9 +86,11 @@ final class VoiceAgentSession: ObservableObject {
         do {
             let details = try await fetchConnectionDetails(roomName: roomName)
             try await room.connect(url: details.serverUrl, token: details.participantToken)
-            try await room.localParticipant.setMicrophone(enabled: true)
-            isMicEnabled = true
             phase = .connected
+            // Hands-free: open the mic so the agent can hear the wake word. The
+            // half-duplex rule below then closes it whenever the agent is
+            // speaking, which kills the speaker→mic echo loop.
+            reconcileMic()
         } catch {
             phase = .failed(error.localizedDescription)
             agentState = .offline
@@ -101,11 +106,26 @@ final class VoiceAgentSession: ObservableObject {
         phase = .idle
     }
 
-    func toggleMicrophone() async {
-        let target = !isMicEnabled
+    /// User toggles their own mute. Auto half-duplex still applies on top.
+    func toggleMute() {
+        muted.toggle()
+        reconcileMic()
+    }
+
+    /// Desired mic state for hands-free half-duplex: open while connected and
+    /// unmuted, but closed whenever the agent is speaking (so its voice from the
+    /// speaker doesn't loop back into the mic). Called on connect and on every
+    /// agent-state change.
+    private func reconcileMic() {
+        let shouldListen = phase == .connected && !muted && agentState != .speaking
+        Task { await setMic(shouldListen) }
+    }
+
+    private func setMic(_ enabled: Bool) async {
+        guard phase == .connected, isMicEnabled != enabled else { return }
         do {
-            try await room.localParticipant.setMicrophone(enabled: target)
-            isMicEnabled = target
+            try await room.localParticipant.setMicrophone(enabled: enabled)
+            isMicEnabled = enabled
         } catch {
             // keep the previous state on failure
         }
@@ -153,6 +173,8 @@ final class VoiceAgentSession: ObservableObject {
         guard let raw = attributes["lk.agent.state"] else { return }
         agentIdentity = identity
         agentState = Self.mapAgentState(raw)
+        // Close the mic while the agent speaks, reopen when it stops.
+        reconcileMic()
     }
 
     private static func mapAgentState(_ raw: String) -> AgentVoiceState {
@@ -182,6 +204,7 @@ final class VoiceAgentSession: ObservableObject {
             if agentState == .offline { agentState = .connecting }
         case .connected:
             phase = .connected
+            reconcileMic()
         default:
             break
         }
