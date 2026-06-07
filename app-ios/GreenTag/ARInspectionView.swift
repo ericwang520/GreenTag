@@ -192,6 +192,7 @@ struct ARInspectionView: UIViewRepresentable {
                         onDetectorStatusUpdated("Loading model")
                         let detector = RoboflowLumberDetector(apiKey: apiKey)
                         try await detector.prepareModel()
+                        onDetectorStatusUpdated(detector.runtimeStatus)
                         self.detector = detector
                     }
 
