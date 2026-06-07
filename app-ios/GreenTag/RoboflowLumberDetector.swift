@@ -17,6 +17,7 @@ struct LumberDetection: Identifiable, Equatable {
 enum RoboflowLumberDetectorConfiguration {
     static let modelID = "lumber-v2-jrf2b"
     static let modelVersion = 4
+    static let minimumConfidence = 0.80
 }
 
 @MainActor
@@ -40,7 +41,11 @@ final class RoboflowLumberDetector {
             throw DetectorError.modelLoadFailed("Roboflow did not return a Core ML model.")
         }
 
-        loadedModel.configure(threshold: 0.80, overlap: 0.45, maxObjects: 8)
+        loadedModel.configure(
+            threshold: RoboflowLumberDetectorConfiguration.minimumConfidence,
+            overlap: 0.45,
+            maxObjects: 8
+        )
         model = loadedModel
     }
 
@@ -63,6 +68,10 @@ final class RoboflowLumberDetector {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .lowercased()
             guard normalizedClass == "lumber" else {
+                return nil
+            }
+
+            guard Double(object.confidence) >= RoboflowLumberDetectorConfiguration.minimumConfidence else {
                 return nil
             }
 

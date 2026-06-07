@@ -112,11 +112,14 @@ struct ARInspectionView: UIViewRepresentable {
                 detectLumberIfNeeded(in: arView)
             }
 
-            let pair = selectedMeasurementPair(in: arView.bounds.size)
+            guard let pair = selectedMeasurementPair() else {
+                onMeasurementUpdated(0, 0)
+                return
+            }
 
             guard let left = worldPoint(at: pair.left, in: arView),
                   let right = worldPoint(at: pair.right, in: arView) else {
-                onMeasurementUpdated(15.25, 0.40)
+                onMeasurementUpdated(0, 0)
                 return
             }
 
@@ -139,20 +142,17 @@ struct ARInspectionView: UIViewRepresentable {
             return SIMD3<Float>(translation.x, translation.y, translation.z)
         }
 
-        private func selectedMeasurementPair(in size: CGSize) -> (left: CGPoint, right: CGPoint, confidence: Double) {
-            let sortedDetections = screenDetections.sorted { lhs, rhs in
-                lhs.frame.midX < rhs.frame.midX
-            }
+        private func selectedMeasurementPair() -> (left: CGPoint, right: CGPoint, confidence: Double)? {
+            let sortedDetections = screenDetections
+                .filter { $0.confidence >= RoboflowLumberDetectorConfiguration.minimumConfidence }
+                .sorted { lhs, rhs in
+                    lhs.frame.midX < rhs.frame.midX
+                }
 
             guard let first = sortedDetections.first,
                   let last = sortedDetections.last,
                   first.id != last.id else {
-                let y = size.height * 0.50
-                return (
-                    CGPoint(x: size.width * 0.36, y: y),
-                    CGPoint(x: size.width * 0.64, y: y),
-                    0.72
-                )
+                return nil
             }
 
             return (first.center, last.center, min(first.confidence, last.confidence))
@@ -200,7 +200,8 @@ struct ARInspectionView: UIViewRepresentable {
                         )
                     }
                     onDetectionsUpdated(screenDetections)
-                    onDetectorStatusUpdated(screenDetections.isEmpty ? "No lumber" : "\(screenDetections.count) lumber")
+                    let status = screenDetections.count >= 2 ? "\(screenDetections.count) lumber" : "Need 2 lumber"
+                    onDetectorStatusUpdated(screenDetections.isEmpty ? "No lumber" : status)
                 } catch {
                     screenDetections = []
                     onDetectionsUpdated([])

@@ -51,8 +51,8 @@ struct ObservationDetection: Encodable {
 }
 
 struct ContentView: View {
-    @State private var spacingIn = 15.25
-    @State private var confidence = 0.86
+    @State private var spacingIn = 0.0
+    @State private var confidence = 0.0
     @State private var cameraAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
     @State private var isPreparingCamera = false
     @State private var isARSessionVisible = false
@@ -60,7 +60,7 @@ struct ContentView: View {
     @State private var agentEndpoint = "http://127.0.0.1:8000/events"
     @State private var publishStatus = "Not sent"
     @State private var isPublishing = false
-    @State private var roboflowStatus = "Guide points"
+    @State private var roboflowStatus = "Loading vision"
     @State private var lumberDetections: [LumberDetection] = []
     @State private var isAutoPublishing = true
     @State private var lastPublishedAt = Date.distantPast
@@ -88,6 +88,10 @@ struct ContentView: View {
 
     private var spacingPreview: StudSpacingPreview {
         StudSpacingPreview(measuredInches: spacingIn)
+    }
+
+    private var hasConfirmedMeasurement: Bool {
+        confidence >= RoboflowLumberDetectorConfiguration.minimumConfidence
     }
 
     private var observationJSON: String {
@@ -124,7 +128,11 @@ struct ContentView: View {
                 )
                     .ignoresSafeArea()
 
-                ARGuideOverlay(spacingIn: spacingIn, detections: lumberDetections)
+                ARGuideOverlay(
+                    spacingIn: spacingIn,
+                    detections: lumberDetections,
+                    hasConfirmedMeasurement: hasConfirmedMeasurement
+                )
                     .ignoresSafeArea()
             }
 
@@ -132,6 +140,7 @@ struct ContentView: View {
                 CameraHUD(
                     spacingIn: spacingIn,
                     confidence: confidence,
+                    hasConfirmedMeasurement: hasConfirmedMeasurement,
                     roboflowStatus: roboflowStatus,
                     detectionCount: lumberDetections.count,
                     publishStatus: publishStatus,
@@ -492,7 +501,8 @@ struct ContentView: View {
     }
 
     private func publishObservationIfNeeded() {
-        guard isAutoPublishing, confidence >= 0.70 else { return }
+        guard isAutoPublishing,
+              confidence >= RoboflowLumberDetectorConfiguration.minimumConfidence else { return }
 
         let now = Date()
         guard now.timeIntervalSince(lastPublishedAt) >= 2.0 else { return }
@@ -538,19 +548,24 @@ struct ContentView: View {
 private struct CameraHUD: View {
     let spacingIn: Double
     let confidence: Double
+    let hasConfirmedMeasurement: Bool
     let roboflowStatus: String
     let detectionCount: Int
     let publishStatus: String
     let spacingPreview: StudSpacingPreview
 
     private var statusColor: Color {
-        switch spacingPreview.status {
+        guard hasConfirmedMeasurement else {
+            return .orange
+        }
+
+        return switch spacingPreview.status {
         case .likelyOnLayout:
-            .green
+            Color.green
         case .checkLayout:
-            .orange
+            Color.orange
         case .likelyOffLayout:
-            .red
+            Color.red
         }
     }
 
@@ -578,11 +593,11 @@ private struct CameraHUD: View {
 
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(spacingPreview.status.title)
+                    Text(hasConfirmedMeasurement ? spacingPreview.status.title : "Scanning studs")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(statusColor)
 
-                    Text(spacingPreview.detailText)
+                    Text(hasConfirmedMeasurement ? spacingPreview.detailText : "Need two lumber detections above 80%")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.78))
                 }
@@ -593,12 +608,12 @@ private struct CameraHUD: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(String(format: "%.2f in", spacingIn))
+                    Text(hasConfirmedMeasurement ? String(format: "%.2f in", spacingIn) : "--")
                         .font(.system(size: 30, weight: .black, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.white)
 
-                    Text("\(Int((confidence * 100).rounded()))% confidence")
+                    Text(hasConfirmedMeasurement ? "\(Int((confidence * 100).rounded()))% confidence" : "waiting for 80%+")
                         .font(.system(size: 12, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.78))
@@ -619,6 +634,7 @@ private struct CameraHUD: View {
 private struct ARGuideOverlay: View {
     let spacingIn: Double
     let detections: [LumberDetection]
+    let hasConfirmedMeasurement: Bool
 
     var body: some View {
         GeometryReader { geometry in
@@ -642,23 +658,25 @@ private struct ARGuideOverlay: View {
                     .position(detection.center)
                 }
 
-                Path { path in
-                    path.move(to: pair.left)
-                    path.addLine(to: pair.right)
+                if let pair, hasConfirmedMeasurement {
+                    Path { path in
+                        path.move(to: pair.left)
+                        path.addLine(to: pair.right)
+                    }
+                    .stroke(.green, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 6]))
+
+                    guidePoint(at: pair.left)
+                    guidePoint(at: pair.right)
+
+                    Text(String(format: "%.2f in", spacingIn))
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.green, in: Capsule())
+                        .position(x: (pair.left.x + pair.right.x) / 2, y: pair.left.y - 30)
                 }
-                .stroke(.green, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 6]))
-
-                guidePoint(at: pair.left)
-                guidePoint(at: pair.right)
-
-                Text(String(format: "%.2f in", spacingIn))
-                    .font(.system(size: 13, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.green, in: Capsule())
-                    .position(x: (pair.left.x + pair.right.x) / 2, y: pair.left.y - 30)
             }
         }
         .allowsHitTesting(false)
@@ -678,19 +696,17 @@ private struct ARGuideOverlay: View {
         .position(point)
     }
 
-    private func selectedPair(in size: CGSize) -> (left: CGPoint, right: CGPoint) {
-        let sortedDetections = detections.sorted { lhs, rhs in
-            lhs.frame.midX < rhs.frame.midX
-        }
+    private func selectedPair(in size: CGSize) -> (left: CGPoint, right: CGPoint)? {
+        let sortedDetections = detections
+            .filter { $0.confidence >= RoboflowLumberDetectorConfiguration.minimumConfidence }
+            .sorted { lhs, rhs in
+                lhs.frame.midX < rhs.frame.midX
+            }
 
         guard let first = sortedDetections.first,
               let last = sortedDetections.last,
               first.id != last.id else {
-            let y = size.height * 0.50
-            return (
-                CGPoint(x: size.width * 0.36, y: y),
-                CGPoint(x: size.width * 0.64, y: y)
-            )
+            return nil
         }
 
         return (first.center, last.center)
