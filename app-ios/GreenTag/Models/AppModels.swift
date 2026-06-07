@@ -88,6 +88,16 @@ struct Verdict {
     var spacingIn: Double
     var confidence: Double
     var isPreview: Bool
+    var spans: [VerdictSpan] = []
+}
+
+struct VerdictSpan: Identifiable {
+    let id = UUID()
+    var label: String
+    var spacingIn: Double
+    var confidence: Double
+    var passes: Bool
+    var detail: String
 }
 
 /// One completed inspection — a row in the home History list.
@@ -110,27 +120,68 @@ enum FramingCodePreview {
     static let clause =
         "Studs shall be spaced not more than 16 inches on center (24 inches on center is permitted for certain assemblies)."
 
-    static func verdict(spacingIn: Double, confidence: Double) -> Verdict {
-        let preview = StudSpacingPreview(measuredInches: spacingIn)
+    static func verdict(
+        spacingIn: Double,
+        confidence: Double,
+        segments: [LumberMeasurementSegment] = []
+    ) -> Verdict {
+        let spans = verdictSpans(from: segments, fallbackSpacingIn: spacingIn, fallbackConfidence: confidence)
+        let primarySpan = spans.first(where: { !$0.passes }) ?? spans.first
+        let preview = StudSpacingPreview(measuredInches: primarySpan?.spacingIn ?? spacingIn)
 
-        let status: VerdictStatus = preview.passesWithTolerance ? .pass : .fail
+        let status: VerdictStatus = spans.allSatisfy(\.passes) ? .pass : .fail
 
         let headline = switch status {
-        case .pass: "On layout — likely passes"
+        case .pass: spans.count > 1 ? "All measured spans are on layout" : "On layout — likely passes"
         case .review: "Borderline — recheck layout"
-        case .fail: "Off layout — likely fails"
+        case .fail:
+            "\(spans.filter { !$0.passes }.count) of \(spans.count) measured spans need recheck"
         case .pending: "Checking against local code"
         }
+
+        let detail = spans.count > 1
+            ? spans.map { "\($0.label): \(String(format: "%.2f in", $0.spacingIn)) \($0.passes ? "pass" : "recheck")" }.joined(separator: "; ")
+            : preview.detailText
 
         return Verdict(
             status: status,
             headline: headline,
-            detail: preview.detailText,
+            detail: detail,
             citation: citation,
             clause: clause,
-            spacingIn: spacingIn,
-            confidence: confidence,
-            isPreview: true
+            spacingIn: primarySpan?.spacingIn ?? spacingIn,
+            confidence: spans.map(\.confidence).min() ?? confidence,
+            isPreview: true,
+            spans: spans
         )
+    }
+
+    private static func verdictSpans(
+        from segments: [LumberMeasurementSegment],
+        fallbackSpacingIn: Double,
+        fallbackConfidence: Double
+    ) -> [VerdictSpan] {
+        let sourceSegments = segments.isEmpty
+            ? [LumberMeasurementSegment(left: .zero, right: .zero, spacingIn: fallbackSpacingIn, confidence: fallbackConfidence)]
+            : segments
+
+        return sourceSegments.enumerated().map { index, segment in
+            let preview = StudSpacingPreview(measuredInches: segment.spacingIn)
+            return VerdictSpan(
+                label: spanLabel(for: index),
+                spacingIn: segment.spacingIn,
+                confidence: segment.confidence,
+                passes: preview.passesWithTolerance,
+                detail: preview.detailText
+            )
+        }
+    }
+
+    private static func spanLabel(for index: Int) -> String {
+        switch index {
+        case 0: "Left"
+        case 1: "Right"
+        default: "Span \(index + 1)"
+        }
     }
 }

@@ -11,6 +11,7 @@ from events import (
     build_spoken_announcement,
     contains_wake_word,
     evaluate_compliance,
+    format_inspection_summary,
     make_events_app,
     parse_field_observation,
     requirement_from_chunks,
@@ -62,8 +63,50 @@ def test_parse_valid_observation() -> None:
     assert obs.inspection_item == "wood_stud_spacing"
     assert obs.spacing_in == 15.25
     assert obs.confidence == 0.86
+    assert len(obs.measurements) == 1
+    assert obs.measurements[0].spacing_in == 15.25
     assert obs.location["city"] == "San Francisco"
     assert not obs.low_confidence
+
+
+def test_parse_multiple_measurements() -> None:
+    obs = parse_field_observation(
+        _obs_payload(
+            measurements=[
+                {"label": "left", "spacing_in": 16.0, "confidence": 0.89},
+                {"label": "right", "spacing_in": 19.3, "confidence": 0.86},
+            ]
+        )
+    )
+    assert len(obs.measurements) == 2
+    assert obs.measurements[0].label == "left"
+    assert obs.measurements[1].spacing_in == 19.3
+
+
+def test_parse_inspection_summary() -> None:
+    obs = parse_field_observation(
+        _obs_payload(
+            inspection_summary={
+                "checks": [
+                    {
+                        "observation_id": "obs_001",
+                        "verdict": "pass",
+                        "spans": [
+                            {
+                                "label": "left",
+                                "spacing_in": 16.0,
+                                "verdict": "pass",
+                                "confidence": 0.89,
+                            }
+                        ],
+                    }
+                ],
+                "latest_agent_announcement": "Left span is fine.",
+            }
+        )
+    )
+    assert obs.inspection_summary is not None
+    assert obs.inspection_summary["latest_agent_announcement"] == "Left span is fine."
 
 
 def test_parse_rejects_wrong_event_type() -> None:
@@ -247,6 +290,48 @@ def test_spoken_announcement_fails_without_llm_reasoning() -> None:
     spoken = build_spoken_announcement(obs, code)
     assert spoken.startswith("Fail.")
     assert "seventeen inches center to center" in spoken
+
+
+def test_spoken_announcement_reports_multiple_measurements() -> None:
+    obs = parse_field_observation(
+        _obs_payload(
+            measurement={"spacing_in": 19.3, "confidence": 0.86},
+            measurements=[
+                {"label": "left", "spacing_in": 16.0, "confidence": 0.89},
+                {"label": "right", "spacing_in": 19.3, "confidence": 0.86},
+            ],
+        )
+    )
+    code = CodeRequirement(
+        citation="IRC R602.3(5)",
+        summary="Studs shall be spaced not more than 16 inches on center.",
+        max_spacing_in=16.0,
+    )
+    spoken = build_spoken_announcement(obs, code)
+    assert spoken.startswith("Fail.")
+    assert "left span passes at sixteen inches" in spoken
+    assert "right span fails at nineteen and a quarter inches" in spoken
+
+
+def test_inspection_summary_formats_recent_history() -> None:
+    summary = format_inspection_summary(
+        {
+            "checks": [
+                {
+                    "observation_id": "obs_001",
+                    "verdict": "fail",
+                    "spans": [
+                        {"label": "left", "spacing_in": 16.0, "verdict": "pass"},
+                        {"label": "right", "spacing_in": 19.3, "verdict": "recheck"},
+                    ],
+                }
+            ]
+        }
+    )
+    assert summary == (
+        "Current inspection history: left span 16.00 inches pass; "
+        "right span 19.30 inches recheck."
+    )
 
 
 def test_structured_spacing_threshold_attaches_demo_limit() -> None:

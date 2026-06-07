@@ -256,8 +256,15 @@ struct ARInspectionView: UIViewRepresentable {
         }
 
         private func selectedPrimarySegment(from segments: [LumberMeasurementSegment]) -> LumberMeasurementSegment? {
-            segments.min { lhs, rhs in
-                abs(lhs.right.x - lhs.left.x) < abs(rhs.right.x - rhs.left.x)
+            segments.max { lhs, rhs in
+                let lhsPreview = StudSpacingPreview(measuredInches: lhs.spacingIn)
+                let rhsPreview = StudSpacingPreview(measuredInches: rhs.spacingIn)
+
+                if lhsPreview.inspectionPriority == rhsPreview.inspectionPriority {
+                    return lhs.confidence < rhs.confidence
+                }
+
+                return lhsPreview.inspectionPriority < rhsPreview.inspectionPriority
             }
         }
 

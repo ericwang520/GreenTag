@@ -57,16 +57,36 @@ struct VerdictCard: View {
     private var measurementRow: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Measured")
+                Text(verdict.spans.count > 1 ? "Measured spans" : "Measured")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.textTertiary)
-                Text(String(format: "%.2f in", verdict.spacingIn))
-                    .font(.system(size: 34, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.textPrimary)
-                Text(verdict.detail)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.textSecondary)
+                if verdict.spans.count > 1 {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(verdict.spans) { span in
+                            HStack(spacing: 8) {
+                                Text(span.label)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(Theme.textSecondary)
+                                    .frame(width: 36, alignment: .leading)
+                                Text(String(format: "%.2f in", span.spacingIn))
+                                    .font(.system(size: 20, weight: .heavy, design: .rounded))
+                                    .monospacedDigit()
+                                    .foregroundStyle(Theme.textPrimary)
+                                Text(span.passes ? "Pass" : "Recheck")
+                                    .font(.system(size: 11, weight: .heavy))
+                                    .foregroundStyle(span.passes ? Theme.accent : .red)
+                            }
+                        }
+                    }
+                } else {
+                    Text(String(format: "%.2f in", verdict.spacingIn))
+                        .font(.system(size: 34, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.textPrimary)
+                    Text(verdict.detail)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 3) {
