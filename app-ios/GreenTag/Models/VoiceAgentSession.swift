@@ -67,6 +67,12 @@ final class VoiceAgentSession: ObservableObject {
     private let room = Room()
     private var agentIdentity: Participant.Identity?
 
+    /// Latest desired mic state, recomputed by `reconcileMic`. A single drain
+    /// task (below) walks the room mic toward this value; serializing through it
+    /// avoids overlapping `setMicrophone` calls racing across their awaits.
+    private var desiredMic = false
+    private var micDraining = false
+
     /// Backend base URL hosting `/connection-details`, e.g. http://127.0.0.1:8000
     var backendBaseURL: URL
 
@@ -117,18 +123,29 @@ final class VoiceAgentSession: ObservableObject {
     /// speaker doesn't loop back into the mic). Called on connect and on every
     /// agent-state change.
     private func reconcileMic() {
-        let shouldListen = phase == .connected && !muted && agentState != .speaking
-        Task { await setMic(shouldListen) }
+        desiredMic = phase == .connected && !muted && agentState != .speaking
+        // Only one drain runs at a time; a concurrent reconcile just updates
+        // `desiredMic` and the in-flight drain picks it up on its next pass.
+        guard !micDraining else { return }
+        micDraining = true
+        Task { await drainMic() }
     }
 
-    private func setMic(_ enabled: Bool) async {
-        guard phase == .connected, isMicEnabled != enabled else { return }
-        do {
-            try await room.localParticipant.setMicrophone(enabled: enabled)
-            isMicEnabled = enabled
-        } catch {
-            // keep the previous state on failure
+    /// Walk the room mic toward `desiredMic`, re-reading it after every call so a
+    /// state flip mid-await is corrected on the next pass. The exit check and the
+    /// `micDraining = false` write run without an await between them (MainActor is
+    /// single-threaded), so a reconcile can't slip in and be lost.
+    private func drainMic() async {
+        while phase == .connected, isMicEnabled != desiredMic {
+            let target = desiredMic
+            do {
+                try await room.localParticipant.setMicrophone(enabled: target)
+                isMicEnabled = target
+            } catch {
+                break  // keep previous state on failure; next reconcile retries
+            }
         }
+        micDraining = false
     }
 
     // MARK: - Send an observation over the data channel
