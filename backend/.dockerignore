@@ -1,0 +1,8 @@
+# Keep the build context small — none of this is needed at runtime.
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.env
+data/codes_raw/   # source PDFs (ingest input only)
+data/raw/         # cached Unsiloed responses (ingest only)
