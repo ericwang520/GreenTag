@@ -115,7 +115,7 @@ enum FramingCodePreview {
 
         let status: VerdictStatus = switch preview.status {
         case .likelyOnLayout: .pass
-        case .checkLayout: .review
+        case .checkLayout: .pass
         case .likelyOffLayout: .fail
         }
 

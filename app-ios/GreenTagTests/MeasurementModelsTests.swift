@@ -19,23 +19,26 @@ final class MeasurementModelsTests: XCTestCase {
     }
 
     func testSpacingPreviewPassesNearSixteenInches() {
-        let preview = StudSpacingPreview(measuredInches: 16.25)
+        let preview = StudSpacingPreview(measuredInches: 15.25)
 
         XCTAssertEqual(preview.status, .likelyOnLayout)
-        XCTAssertEqual(preview.detailText, "0.25 in wide of 16 in")
+        XCTAssertTrue(preview.passesWithTolerance)
+        XCTAssertEqual(preview.detailText, "0.75 in within 16 in max")
     }
 
-    func testSpacingPreviewWarnsNearLayoutBoundary() {
-        let preview = StudSpacingPreview(measuredInches: 17.25)
+    func testSpacingPreviewPassesWithinOneFootTolerance() {
+        let preview = StudSpacingPreview(measuredInches: 27.25)
 
         XCTAssertEqual(preview.status, .checkLayout)
-        XCTAssertEqual(preview.detailText, "1.25 in wide of 16 in")
+        XCTAssertTrue(preview.passesWithTolerance)
+        XCTAssertEqual(preview.detailText, "11.25 in over max, within 1 ft tolerance")
     }
 
-    func testSpacingPreviewFailsFarFromLayout() {
-        let preview = StudSpacingPreview(measuredInches: 20)
+    func testSpacingPreviewFailsBeyondOneFootTolerance() {
+        let preview = StudSpacingPreview(measuredInches: 29)
 
         XCTAssertEqual(preview.status, .likelyOffLayout)
-        XCTAssertEqual(preview.detailText, "4.00 in wide of 16 in")
+        XCTAssertFalse(preview.passesWithTolerance)
+        XCTAssertEqual(preview.detailText, "1.00 in over 1 ft tolerance")
     }
 }

@@ -53,7 +53,8 @@
 		9BB92BD1D03314BE62F64B45 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		B3F3E8B306E9F7F5B8C62A15 /* FieldObservation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldObservation.swift; sourceTree = "<group>"; };
 		CF15FBEB140D18146687346A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		DEB61932B04FC1402EE4950A /* GreenTag.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GreenTag.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DEB61932B04FC1402EE4950A /* GreenTag.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GreenTag.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E7416F572FD4F894001FD196 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 		F01C3291FB45D72E2C2E6B4A /* AgentEventPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentEventPublisher.swift; sourceTree = "<group>"; };
 		F1F98145EF2BFD2F23A69A8B /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
 		F587C85E300D14627CDFB271 /* RoboflowLumberDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoboflowLumberDetector.swift; sourceTree = "<group>"; };
@@ -104,6 +105,7 @@
 			isa = PBXGroup;
 			children = (
 				F1F98145EF2BFD2F23A69A8B /* Shared.xcconfig */,
+				E7416F572FD4F894001FD196 /* Secrets.xcconfig */,
 			);
 			path = Config;
 			sourceTree = "<group>";
