@@ -31,8 +31,15 @@ Add Unsiloed/MiniMax to enable city uploads; add LiveKit for the voice token.
 4. **Settings → Networking → Generate Domain.** That HTTPS URL serves the map at `/`
    and the API at `/codes/...`. Point the iOS app at it.
 
-Railway injects `$PORT` (the Dockerfile honors it) and auto-redeploys on push to the
-deployed branch.
+Railway injects `$PORT` (the Dockerfile honors it).
+
+### Monorepo: auto-deploy only on backend changes
+- **Root Directory = `backend`** scopes the build to this folder.
+- **`railway.json` → `build.watchPatterns: ["backend/**"]`** means a push only redeploys
+  when files under `backend/` change — edits to `app-ios/` etc. won't trigger a deploy.
+  (Watch paths are repo-root relative.) Adjust the glob there to change what's watched.
+- Auto-deploy-on-push requires the **GitHub-connected** deploy (the dashboard flow above).
+  `railway up` from the CLI is a manual one-shot deploy and does not watch the repo.
 
 ### Railway CLI (optional)
 ```bash
