@@ -120,6 +120,11 @@ struct InspectionView: View {
                     if let primarySegment = selectedPrimarySegment(from: segments) {
                         spacingIn = primarySegment.spacingIn
                         confidence = primarySegment.confidence
+                        // Multi-span (whole-wall) readings arrive here — push them to
+                        // the agent the moment they're shown, and auto-announce once
+                        // settled, so the spoken value matches the screen.
+                        streamReadingToAgent(spacing: primarySegment.spacingIn, confidence: primarySegment.confidence)
+                        autoAnnounceIfStable(spacing: primarySegment.spacingIn, confidence: primarySegment.confidence)
                     }
                 },
                 onDetectionsUpdated: { lumberDetections = $0 },

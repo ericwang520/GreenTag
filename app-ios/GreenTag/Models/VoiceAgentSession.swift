@@ -199,8 +199,10 @@ final class VoiceAgentSession: ObservableObject {
     func streamReading(_ observation: FieldObservation, spacingIn: Double) async {
         guard phase == .connected else { return }
         let now = Date()
-        let movedEnough = lastStreamSpacing.map { abs($0 - spacingIn) >= 0.25 } ?? true
-        let dueByTime = now.timeIntervalSince(lastStreamAt) >= 1.5
+        // Keep the agent's reading close to what's on screen: push on any small
+        // change or at least twice a second, so get_current_reading is never stale.
+        let movedEnough = lastStreamSpacing.map { abs($0 - spacingIn) >= 0.1 } ?? true
+        let dueByTime = now.timeIntervalSince(lastStreamAt) >= 0.5
         guard movedEnough || dueByTime else { return }
         lastStreamSpacing = spacingIn
         lastStreamAt = now

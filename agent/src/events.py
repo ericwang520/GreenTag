@@ -595,23 +595,37 @@ def format_current_reading(obs: FieldObservation | None) -> str:
             "aim at the wall and hold steady until a reading locks."
         )
 
-    parts: list[str] = []
-    if obs.spacing_in is not None:
-        parts.append(f"measured spacing is {obs.spacing_in} inches, center to center")
-    if obs.confidence is not None:
-        parts.append(f"measurement confidence is {obs.confidence:.0%}")
+    # Speak the spacing already converted to words (format_inches) so the LLM
+    # repeats the EXACT live value verbatim — it must not re-round or fall back on
+    # any example number. List every span for whole-wall multi-span scans.
+    readable = [r for r in obs.measurements if r.spacing_in is not None]
+    if len(readable) > 1:
+        spans = [
+            f"{format_label(r.label)} is {format_inches(r.spacing_in)}" for r in readable
+        ]
+        spacing_phrase = f"the live spacing reads {join_spoken_list(spans)}, center to center"
+    elif readable:
+        spacing_phrase = (
+            f"the live spacing is {format_inches(readable[0].spacing_in)}, center to center"
+        )
+    elif obs.spacing_in is not None:
+        spacing_phrase = f"the live spacing is {format_inches(obs.spacing_in)}, center to center"
+    else:
+        spacing_phrase = "a reading is in but carries no spacing value"
+
+    parts = [spacing_phrase]
     city = (obs.location or {}).get("city")
     if city:
         parts.append(f"the job site is in {city}")
-    body = "; ".join(parts) if parts else "a reading is in but carries no spacing value"
+    body = "; ".join(parts)
 
     if obs.low_confidence:
         return (
-            f"The current {body}. Confidence is LOW — tell the contractor the reading "
+            f"Right now {body}. Confidence is LOW — tell the contractor the reading "
             "is approximate and to re-aim and hold steady before trusting it; do not "
-            "give a pass or fail yet."
+            "give a pass or fail yet. Use these exact numbers, not an example."
         )
-    return f"The current {body}."
+    return f"Right now {body}. Use these exact spacing numbers in your answer, never an example value."
 
 
 class ObservationStore:

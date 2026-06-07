@@ -482,8 +482,25 @@ def test_format_current_reading_none_asks_to_aim() -> None:
 def test_format_current_reading_includes_spacing_and_city() -> None:
     obs = parse_field_observation(_obs_payload())  # 15.25", SF
     text = format_current_reading(obs)
-    assert "15.25" in text
+    # Spacing is spoken in words (deterministic) so the LLM repeats the exact
+    # value rather than re-rounding it: 15.25 -> "fifteen and a quarter inches".
+    assert "fifteen and a quarter inches" in text
     assert "San Francisco" in text
+    assert "exact" in text.lower()  # instructs the model not to use an example
+
+
+def test_format_current_reading_multi_span_lists_each() -> None:
+    obs = parse_field_observation(
+        _obs_payload(
+            measurements=[
+                {"label": "left", "spacing_in": 16.0, "confidence": 0.9},
+                {"label": "right", "spacing_in": 19.5, "confidence": 0.9},
+            ]
+        )
+    )
+    text = format_current_reading(obs)
+    assert "left span is sixteen inches" in text
+    assert "right span is nineteen and a half inches" in text
 
 
 def test_format_current_reading_low_confidence_says_reaim() -> None:
