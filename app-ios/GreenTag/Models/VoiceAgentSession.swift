@@ -96,9 +96,11 @@ final class VoiceAgentSession: ObservableObject {
             print("[GreenTag LiveKit] connecting room=\(details.roomName) participant=\(details.participantName)")
             try await room.connect(url: details.serverUrl, token: details.participantToken)
             phase = .connected
-            // Hands-free: open the mic so the agent can hear the wake word. The
-            // half-duplex rule below then closes it whenever the agent is
-            // speaking, which kills the speaker→mic echo loop.
+            // Hands-free: open the mic and keep it open for the whole session
+            // (full duplex). Echo from the speaker is handled by the
+            // `.voiceChat` AVAudioSession mode's hardware echo cancellation
+            // plus the agent's interruption gating — closing the mic while the
+            // agent spoke made the user inaudible for most of the conversation.
             reconcileMic()
         } catch {
             phase = .failed(error.localizedDescription)
@@ -116,18 +118,20 @@ final class VoiceAgentSession: ObservableObject {
         phase = .idle
     }
 
-    /// User toggles their own mute. Auto half-duplex still applies on top.
+    /// User toggles their own mute.
     func toggleMute() {
         muted.toggle()
         reconcileMic()
     }
 
-    /// Desired mic state for hands-free half-duplex: open while connected and
-    /// unmuted, but closed whenever the agent is speaking (so its voice from the
-    /// speaker doesn't loop back into the mic). Called on connect and on every
+    /// Desired mic state for hands-free full duplex: open while connected and
+    /// unmuted — including while the agent is speaking, so the user can talk
+    /// over / interrupt it. Speaker→mic echo is suppressed by the `.voiceChat`
+    /// audio-session AEC; the agent additionally requires several words before
+    /// treating speech as an interruption. Called on connect and on every
     /// agent-state change.
     private func reconcileMic() {
-        desiredMic = phase == .connected && !muted && agentState != .speaking
+        desiredMic = phase == .connected && !muted
         // Only one drain runs at a time; a concurrent reconcile just updates
         // `desiredMic` and the in-flight drain picks it up on its next pass.
         guard !micDraining else { return }

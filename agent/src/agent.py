@@ -51,12 +51,12 @@ EVENTS_HOST = os.getenv("EVENTS_HOST", "0.0.0.0")
 # the browser map and curl testing. Both funnel into the same EventDispatcher.
 FIELD_OBSERVATION_TOPIC = "field_observation"
 
-# MiniMax chat model for the voice loop. M3 is a slow *reasoning* model: it spends
-# tokens in a <think> block before the first spoken word, which hurts voice
-# time-to-first-audio. M2.7-highspeed is MiniMax's own recommendation for voice
-# pipelines (~100 tok/s). Overridable so you can drop to MiniMax-M2.1-highspeed
-# (non-reasoning, snappiest) — confirm the exact id string in your MiniMax console.
-MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-M2.7-highspeed")
+# MiniMax chat model for the voice loop. The whole M2 family *always* reasons
+# before the first spoken word (it cannot be disabled), which hurts voice
+# time-to-first-audio. Measured on our key: M2.1-highspeed at reasoning_effort
+# "low" is the snappiest combo (~200 think tokens / ~6s per verdict vs ~280 /
+# ~8s on M2.7-highspeed), so it's the default for the demo.
+MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-M2.1-highspeed")
 
 # Bridge to Eric's backend package (a sibling uv project, not pip-installed) so
 # the agent can call his Moss retrieval in-process — the design he documented in
@@ -155,9 +155,13 @@ def _make_speak(session: AgentSession):
         code = requirement_from_chunks(chunks)
         code = _attach_spacing_threshold(obs, code)
         announcement = build_spoken_announcement(obs, code)
+        # Interruptible on purpose: announcements can stack up while the model
+        # thinks, and blocking interruptions left the contractor unable to get
+        # a word in (the iOS side used to also close the mic while the agent
+        # spoke). The session's min_interruption_words gate filters echo/noise.
         session.say(
             announcement,
-            allow_interruptions=False,
+            allow_interruptions=True,
             add_to_chat_ctx=True,
         )
 
@@ -252,6 +256,13 @@ class Assistant(Agent):
                 model=MINIMAX_MODEL,
                 base_url="https://api.minimax.io/v1",
                 api_key=os.getenv("MINIMAX_API_KEY"),
+                # reasoning_split moves the model's <think> chain-of-thought out
+                # of `content` into a separate reasoning field, so it can never
+                # leak into the spoken reply (without it, fragments like "The
+                # user…" escaped the SDK's tag stripping and were spoken aloud).
+                # reasoning_effort "low" trims think tokens — "minimal" is not a
+                # value MiniMax honors and measured *slower* than "low".
+                extra_body={"reasoning_split": True, "reasoning_effort": "low"},
             ),
             # To use a realtime model instead of a voice pipeline, replace the LLM
             # with a RealtimeModel and remove the STT/TTS from the AgentSession
