@@ -180,10 +180,34 @@ final class VoiceAgentSession: ObservableObject {
     // MARK: - Send an observation over the data channel
 
     func send(_ observation: FieldObservation) async {
-        guard phase == .connected else { return }
-        guard let data = try? JSONEncoder().encode(observation) else { return }
+        guard phase == .connected else {
+            print("[GreenTag LiveKit] skip observation \(observation.observationID): room not connected, phase=\(phase)")
+            return
+        }
+
+        let data: Data
+        do {
+            data = try JSONEncoder().encode(observation)
+        } catch {
+            print("[GreenTag LiveKit] encode failed for observation \(observation.observationID): \(error)")
+            return
+        }
+
         let options = DataPublishOptions(topic: Self.observationTopic, reliable: true)
-        try? await room.localParticipant.publish(data: data, options: options)
+        print(
+            "[GreenTag LiveKit] sending observation \(observation.observationID) " +
+            "topic=\(Self.observationTopic) announce=\(observation.announce) " +
+            "spacing=\(String(format: "%.2f", observation.measurement.spacingIn))in " +
+            "confidence=\(Int((observation.measurement.confidence * 100).rounded()))% " +
+            "spans=\(observation.measurements.count) bytes=\(data.count)"
+        )
+
+        do {
+            try await room.localParticipant.publish(data: data, options: options)
+            print("[GreenTag LiveKit] sent observation \(observation.observationID)")
+        } catch {
+            print("[GreenTag LiveKit] publish failed for observation \(observation.observationID): \(error)")
+        }
     }
 
     /// Throttle state for the continuous live stream (below).
