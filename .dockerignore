@@ -1,0 +1,14 @@
+# Build context = repo root for the Railway GitHub deploy. Keep it small: only
+# backend/ is needed (and not its venv/PDFs/cache).
+app-ios/
+deprecated/
+vision/
+agent/
+.git/
+backend/.venv/
+backend/data/codes_raw/
+backend/data/raw/
+**/__pycache__/
+*.pyc
+**/.DS_Store
+*.zip
