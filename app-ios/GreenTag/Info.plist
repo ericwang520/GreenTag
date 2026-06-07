@@ -27,6 +27,8 @@
 	<string>GreenTag uses the camera with ARKit to measure framing spacing during inspections.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>GreenTag connects to the local hackathon agent during demos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>GreenTag uses the microphone so you can talk with the AI inspector about code.</string>
 	<key>ROBOFLOW_API_KEY</key>
 	<string>$(ROBOFLOW_API_KEY)</string>
 	<key>UILaunchScreen</key>

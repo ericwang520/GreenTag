@@ -2,12 +2,17 @@ import AVFoundation
 import SwiftUI
 
 /// The live AR inspection screen: full-screen camera, real-time stud-spacing
-/// measurement, a voice-assistant indicator (the check is conversational), and
-/// a verdict card on confirm. Voice (LiveKit) is not wired yet — the indicator
-/// and verdict run on-device as a preview.
+/// measurement, a live voice link to the agent over LiveKit (the check is
+/// conversational), and a verdict card on confirm. The measurement is sent to
+/// the agent over the room's data channel; the agent announces the ruling by
+/// voice. The card shows an on-device preview alongside.
 struct InspectionView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
+
+    @StateObject private var voice = VoiceAgentSession(
+        backendBaseURL: URL(string: "http://127.0.0.1:8000")!
+    )
 
     private let kind: InspectionKind = .woodStudSpacing
 
@@ -25,7 +30,6 @@ struct InspectionView: View {
     @State private var showDebug = false
     @State private var demoMode = false
     @State private var verdict: Verdict?
-    @State private var publishStatus = ""
 
     private var hasConfirmedMeasurement: Bool {
         confidence >= minimumConfidence && spacingIn > 0
@@ -35,13 +39,17 @@ struct InspectionView: View {
         StudSpacingPreview(measuredInches: spacingIn)
     }
 
-    private var voiceState: AgentVoiceState {
-        if verdict != nil { return .speaking }
-        return hasConfirmedMeasurement ? .ready : .listening
-    }
-
     private var showManualControls: Bool {
         demoMode || !isARSessionVisible
+    }
+
+    private var connectionNote: String {
+        switch voice.phase {
+        case .idle: ""
+        case .connecting: "Connecting to inspector…"
+        case .connected: voice.isMicEnabled ? "Mic on · inspector listening" : "Connected · mic off"
+        case .failed: "Voice offline — showing on-device preview"
+        }
     }
 
     var body: some View {
@@ -56,7 +64,12 @@ struct InspectionView: View {
 
             VStack(spacing: 12) {
                 topBar
-                AgentVoiceIndicator(state: voiceState, site: appModel.jobSite, headline: verdict?.headline)
+                AgentVoiceIndicator(
+                    state: voice.agentState,
+                    transcript: voice.agentTranscript,
+                    micEnabled: voice.isMicEnabled,
+                    onToggleMic: { Task { await voice.toggleMicrophone() } }
+                )
                 if showDebug, let debugFrame {
                     RoboflowDebugFramePreview(debugFrame: debugFrame)
                         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -76,6 +89,7 @@ struct InspectionView: View {
         }
         .preferredColorScheme(.dark)
         .task { await prepareCamera() }
+        .task { await connectVoice() }
     }
 
     // MARK: AR layer
@@ -111,7 +125,7 @@ struct InspectionView: View {
     private var topBar: some View {
         HStack(spacing: 10) {
             Button {
-                dismiss()
+                closeInspection()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .bold))
@@ -203,10 +217,10 @@ struct InspectionView: View {
             .buttonStyle(.plain)
             .disabled(!hasConfirmedMeasurement)
 
-            if !publishStatus.isEmpty {
-                Text(publishStatus)
+            if !connectionNote.isEmpty {
+                Label(connectionNote, systemImage: "dot.radiowaves.left.and.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(voice.isConnected ? Theme.accent.opacity(0.9) : .white.opacity(0.55))
             }
         }
         .padding(16)
@@ -315,11 +329,26 @@ struct InspectionView: View {
 
     private func runCheck() {
         guard hasConfirmedMeasurement, verdict == nil else { return }
+        let observation = makeObservation()
         let result = FramingCodePreview.verdict(spacingIn: spacingIn, confidence: confidence)
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
             verdict = result
         }
-        Task { await publish() }
+        // Hand the raw measurement to the agent over the data channel; it
+        // retrieves the clause and announces the ruling by voice.
+        Task { await voice.send(observation) }
+    }
+
+    private func makeObservation() -> FieldObservation {
+        FieldObservation(
+            observationID: appModel.nextObservationID(),
+            inspectionItem: kind.rawValue,
+            location: ObservationLocation(city: appModel.jobSite.city, state: appModel.jobSite.state),
+            measurement: ObservationMeasurement(spacingIn: spacingIn, confidence: confidence),
+            detections: lumberDetections.map {
+                ObservationDetection(objectClass: $0.className, confidence: $0.confidence)
+            }
+        )
     }
 
     private func saveAndExit(_ verdict: Verdict) {
@@ -331,14 +360,26 @@ struct InspectionView: View {
             createdAt: Date()
         )
         appModel.add(record)
-        dismiss()
+        closeInspection()
     }
 
     private func resumeScanning() {
         withAnimation(.easeInOut(duration: 0.25)) {
             verdict = nil
         }
-        publishStatus = ""
+    }
+
+    private func closeInspection() {
+        Task { await voice.disconnect() }
+        dismiss()
+    }
+
+    @MainActor
+    private func connectVoice() async {
+        if let url = URL(string: appModel.backendBaseURL) {
+            voice.backendBaseURL = url
+        }
+        await voice.connect()
     }
 
     @MainActor
@@ -364,30 +405,6 @@ struct InspectionView: View {
         }
     }
 
-    @MainActor
-    private func publish() async {
-        guard let url = URL(string: appModel.agentEndpoint) else {
-            publishStatus = "Invalid agent URL"
-            return
-        }
-        publishStatus = "Sending to agent…"
-        let observation = FieldObservation(
-            observationID: appModel.nextObservationID(),
-            inspectionItem: kind.rawValue,
-            location: ObservationLocation(city: appModel.jobSite.city, state: appModel.jobSite.state),
-            measurement: ObservationMeasurement(spacingIn: spacingIn, confidence: confidence),
-            detections: lumberDetections.map {
-                ObservationDetection(objectClass: $0.className, confidence: $0.confidence)
-            }
-        )
-        do {
-            let code = try await AgentEventPublisher(endpoint: url).publish(observation)
-            publishStatus = "Agent notified (\(code))"
-        } catch {
-            publishStatus = "Agent offline — showing on-device preview"
-        }
-    }
-
     private var permissionTitle: String {
         switch cameraAuthorizationStatus {
         case .authorized: "Ready to inspect"
@@ -407,47 +424,26 @@ struct InspectionView: View {
     }
 }
 
-// MARK: - Agent voice indicator (placeholder for LiveKit)
+// MARK: - Agent voice indicator (bound to the live LiveKit session)
 
-enum AgentVoiceState {
-    case listening
-    case ready
-    case speaking
-
-    var title: String {
-        switch self {
-        case .listening: "Listening — scanning the wall"
-        case .ready: "Ready — tap to check code"
-        case .speaking: "Inspector speaking"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .listening: .cyan
-        case .ready: .green
-        case .speaking: .green
-        }
-    }
-
-    var isAnimating: Bool { self != .ready }
-}
-
-/// Visual stand-in for the conversational agent. When LiveKit voice is wired,
-/// this binds to the live session state and the real transcript.
+/// Shows the conversational agent's live state, its latest spoken line, and a
+/// mic toggle so the inspector can talk back.
 struct AgentVoiceIndicator: View {
     let state: AgentVoiceState
-    let site: JobSite
-    var headline: String?
+    let transcript: String
+    let micEnabled: Bool
+    let onToggleMic: () -> Void
 
     @State private var animate = false
 
     private var subtitle: String {
-        if let headline { return headline }
-        return switch state {
-        case .listening: "Checking against \(site.city) code…"
-        case .ready: "Spacing locked — say the word or tap to check"
-        case .speaking: "Comparing to local framing code…"
+        if !transcript.isEmpty { return transcript }
+        switch state {
+        case .offline: return "Tap the mic to reconnect"
+        case .connecting: return "Bringing the inspector on the line…"
+        case .listening: return "Ask about the code, or lock a measurement"
+        case .thinking: return "Looking up the local requirement…"
+        case .speaking: return "…"
         }
     }
 
@@ -461,9 +457,17 @@ struct AgentVoiceIndicator: View {
                 Text(subtitle)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
             Spacer()
+            Button(action: onToggleMic) {
+                Image(systemName: micEnabled ? "mic.fill" : "mic.slash.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(micEnabled ? .black : .white)
+                    .frame(width: 36, height: 36)
+                    .background(micEnabled ? Theme.accent : Color.white.opacity(0.16), in: Circle())
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

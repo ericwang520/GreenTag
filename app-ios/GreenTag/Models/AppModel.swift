@@ -9,7 +9,10 @@ final class AppModel {
     var jobSite: JobSite
     var recentSites: [JobSite]
     var records: [InspectionRecord] = []
-    var agentEndpoint = "http://127.0.0.1:8000/events"
+
+    /// Backend base URL hosting `/connection-details` (the LiveKit token + agent
+    /// dispatch). On a device, point this at the Mac's LAN address.
+    var backendBaseURL = "http://127.0.0.1:8000"
 
     private var observationCounter = 1
 
