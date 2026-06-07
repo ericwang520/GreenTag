@@ -32,7 +32,7 @@ No typing. Contractors are on ladders with gloves and full hands — so the whol
         └─► ARKit  ──► center-to-center spacing  ──┐
                                                    │  field_observation (JSON)
                                                    ▼
-  "Does this pass?" ──► LiveKit (audio) ──► MiniMax (STT · reasoning · TTS)
+  "Does this pass?" ──► LiveKit (audio) ──► Deepgram (STT) ──► MiniMax (reasoning · TTS)
                                                    │
                                                    ▼
                               Moss  ◄── building codes (Unsiloed-parsed)
@@ -51,8 +51,9 @@ Building codes are messy, city-specific PDFs. We use **Unsiloed** to parse them 
 |---|---|
 | Object detection | Custom-trained model (Roboflow) |
 | Spatial measurement | ARKit (center-to-center, inches) |
-| Realtime voice transport | LiveKit |
-| Speech + reasoning (STT · LLM · TTS) | MiniMax |
+| Realtime voice transport + orchestration | LiveKit |
+| Speech-to-text (STT) | Deepgram (via LiveKit) |
+| Reasoning (LLM) + text-to-speech (TTS) | MiniMax |
 | Building-code document parsing | Unsiloed |
 | Real-time code retrieval / data integration | Moss (<10 ms semantic search) |
 
@@ -94,10 +95,8 @@ Currently indexed: **San Francisco** & **Seattle** (with IRC as the model-code f
 ## Team
 
 Built by **Eric × Xiya** at the **YC Conversational AI Hackathon**, June 6–7, 2026.
-
-- Eric — iOS / AR / vision
-- Xiya — voice agent / AI / data pipeline
-
-Powered by **Moss · Unsiloed · LiveKit · MiniMax**.
+Powered by **Moss · Unsiloed · LiveKit · Deepgram · MiniMax**.
 
 ---
+
+*GreenTag — pass the first time.*
