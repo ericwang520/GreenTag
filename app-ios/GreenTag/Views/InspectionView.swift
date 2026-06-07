@@ -112,6 +112,10 @@ struct InspectionView: View {
                 onMeasurementSegmentsUpdated: { segments in
                     guard verdict == nil else { return }
                     measurementSegments = segments
+                    if let primarySegment = selectedPrimarySegment(from: segments) {
+                        spacingIn = primarySegment.spacingIn
+                        confidence = primarySegment.confidence
+                    }
                 },
                 onDetectionsUpdated: { lumberDetections = $0 },
                 onDebugFrameUpdated: { debugFrame = $0 },
@@ -340,7 +344,11 @@ struct InspectionView: View {
     private func runCheck() {
         guard hasConfirmedMeasurement, verdict == nil else { return }
         let observation = makeObservation()
-        let result = FramingCodePreview.verdict(spacingIn: spacingIn, confidence: confidence)
+        let result = FramingCodePreview.verdict(
+            spacingIn: spacingIn,
+            confidence: confidence,
+            segments: measurementSegments
+        )
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
             verdict = result
         }
@@ -355,10 +363,38 @@ struct InspectionView: View {
             inspectionItem: kind.rawValue,
             location: ObservationLocation(city: appModel.jobSite.city, state: appModel.jobSite.state),
             measurement: ObservationMeasurement(spacingIn: spacingIn, confidence: confidence),
+            measurements: observationMeasurements(),
             detections: lumberDetections.map {
                 ObservationDetection(objectClass: $0.className, confidence: $0.confidence)
             }
         )
+    }
+
+    private func observationMeasurements() -> [ObservationMeasurement] {
+        guard !measurementSegments.isEmpty else {
+            return [ObservationMeasurement(spacingIn: spacingIn, confidence: confidence, label: "primary")]
+        }
+
+        return measurementSegments.enumerated().map { index, segment in
+            ObservationMeasurement(
+                spacingIn: segment.spacingIn,
+                confidence: segment.confidence,
+                label: index == 0 ? "left" : index == 1 ? "right" : "span_\(index + 1)"
+            )
+        }
+    }
+
+    private func selectedPrimarySegment(from segments: [LumberMeasurementSegment]) -> LumberMeasurementSegment? {
+        segments.max { lhs, rhs in
+            let lhsPreview = StudSpacingPreview(measuredInches: lhs.spacingIn)
+            let rhsPreview = StudSpacingPreview(measuredInches: rhs.spacingIn)
+
+            if lhsPreview.inspectionPriority == rhsPreview.inspectionPriority {
+                return lhs.confidence < rhs.confidence
+            }
+
+            return lhsPreview.inspectionPriority < rhsPreview.inspectionPriority
+        }
     }
 
     private func saveAndExit(_ verdict: Verdict) {

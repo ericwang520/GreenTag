@@ -150,7 +150,7 @@ def _make_speak(session: AgentSession):
         session.say(
             announcement,
             allow_interruptions=False,
-            add_to_chat_ctx=False,
+            add_to_chat_ctx=True,
         )
 
     return speak

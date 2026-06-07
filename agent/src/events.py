@@ -151,6 +151,19 @@ def _default_max_spacing(chunk: dict) -> float | None:
 
 
 @dataclass
+class MeasurementReading:
+    spacing_in: float | None
+    confidence: float | None
+    label: str | None = None
+
+    @property
+    def low_confidence(self) -> bool:
+        return (
+            self.confidence is not None and self.confidence < LOW_CONFIDENCE_THRESHOLD
+        )
+
+
+@dataclass
 class FieldObservation:
     """A single measurement from vision. Mirrors schema.md FieldObservation.
 
@@ -162,15 +175,16 @@ class FieldObservation:
     inspection_item: str
     spacing_in: float | None
     confidence: float | None
+    measurements: list[MeasurementReading]
     question_for_agent: str | None
     location: dict
     raw: dict = field(default_factory=dict)
 
     @property
     def low_confidence(self) -> bool:
-        return (
-            self.confidence is not None and self.confidence < LOW_CONFIDENCE_THRESHOLD
-        )
+        if self.measurements:
+            return any(reading.low_confidence for reading in self.measurements)
+        return self.confidence is not None and self.confidence < LOW_CONFIDENCE_THRESHOLD
 
 
 class ObservationError(ValueError):
@@ -209,6 +223,16 @@ def parse_field_observation(payload: object) -> FieldObservation:
     if confidence is not None and not isinstance(confidence, (int, float)):
         raise ObservationError("measurement.confidence must be a number")
 
+    measurements = _parse_measurements(payload.get("measurements"))
+    if not measurements and (spacing_in is not None or confidence is not None):
+        measurements = [
+            MeasurementReading(
+                spacing_in=float(spacing_in) if spacing_in is not None else None,
+                confidence=float(confidence) if confidence is not None else None,
+                label="primary",
+            )
+        ]
+
     location = payload.get("location") or {}
     if not isinstance(location, dict):
         raise ObservationError("location must be an object")
@@ -222,10 +246,45 @@ def parse_field_observation(payload: object) -> FieldObservation:
         inspection_item=inspection_item,
         spacing_in=float(spacing_in) if spacing_in is not None else None,
         confidence=float(confidence) if confidence is not None else None,
+        measurements=measurements,
         question_for_agent=question,
         location=location,
         raw=payload,
     )
+
+
+def _parse_measurements(value: object) -> list[MeasurementReading]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ObservationError("measurements must be an array")
+
+    readings: list[MeasurementReading] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ObservationError("measurements entries must be objects")
+
+        spacing_in = item.get("spacing_in")
+        if spacing_in is not None and not isinstance(spacing_in, (int, float)):
+            raise ObservationError("measurements.spacing_in must be a number")
+
+        confidence = item.get("confidence")
+        if confidence is not None and not isinstance(confidence, (int, float)):
+            raise ObservationError("measurements.confidence must be a number")
+
+        label = item.get("label")
+        if label is not None and not isinstance(label, str):
+            raise ObservationError("measurements.label must be a string")
+
+        readings.append(
+            MeasurementReading(
+                spacing_in=float(spacing_in) if spacing_in is not None else None,
+                confidence=float(confidence) if confidence is not None else None,
+                label=label,
+            )
+        )
+
+    return readings
 
 
 def evaluate_compliance(obs: FieldObservation, code: CodeRequirement | None) -> str:
@@ -253,6 +312,9 @@ def build_spoken_announcement(
     safest voice behavior is a short deterministic line with no hidden reasoning
     stream that can leak into audio.
     """
+    if len(obs.measurements) > 1:
+        return build_multi_measurement_announcement(obs, code)
+
     measurement = (
         f"{format_inches(obs.spacing_in)} center to center"
         if obs.spacing_in is not None
@@ -272,6 +334,55 @@ def build_spoken_announcement(
     if verdict == "fail":
         return f"Fail. Measured {measurement}; {citation} allows up to {format_inches(code.max_spacing_in)}."
     return f"Measured {measurement}. I found {citation}, but I need the wall load case before calling pass or fail."
+
+
+def build_multi_measurement_announcement(
+    obs: FieldObservation, code: CodeRequirement | None = None
+) -> str:
+    readable = [
+        reading for reading in obs.measurements if reading.spacing_in is not None
+    ]
+    if not readable:
+        return build_spoken_announcement(
+            FieldObservation(
+                observation_id=obs.observation_id,
+                inspection_item=obs.inspection_item,
+                spacing_in=obs.spacing_in,
+                confidence=obs.confidence,
+                measurements=[],
+                question_for_agent=obs.question_for_agent,
+                location=obs.location,
+                raw=obs.raw,
+            ),
+            code,
+        )
+
+    if obs.low_confidence:
+        return "I have multiple approximate spacing reads. Re-scan before relying on them."
+
+    if code is None or code.max_spacing_in is None:
+        pieces = [
+            f"{format_label(reading.label)} is {format_inches(reading.spacing_in)}"
+            for reading in readable
+        ]
+        return f"I measured {join_spoken_list(pieces)} center to center. I'm checking them against local code now."
+
+    citation = format_citation(code.citation)
+    pieces = []
+    failed = False
+    for reading in readable:
+        passes = reading.spacing_in <= code.max_spacing_in + SPACING_TOLERANCE_IN
+        failed = failed or not passes
+        result = "passes" if passes else "fails"
+        pieces.append(
+            f"{format_label(reading.label)} {result} at {format_inches(reading.spacing_in)}"
+        )
+
+    bottom_line = "Fail" if failed else "Pass"
+    return (
+        f"{bottom_line}. {join_spoken_list(pieces)}. "
+        f"{citation} allows up to {format_inches(code.max_spacing_in)}."
+    )
 
 
 def format_inches(value: float | None) -> str:
@@ -301,6 +412,27 @@ def format_citation(citation: str) -> str:
     cleaned = cleaned.replace("R", "section R", 1) if cleaned.startswith("R") else cleaned
     cleaned = cleaned.replace("(", " ").replace(")", "")
     return cleaned
+
+
+def format_label(label: str | None) -> str:
+    normalized = (label or "").strip().lower().replace("_", " ")
+    if normalized in {"left", "left span"}:
+        return "left span"
+    if normalized in {"right", "right span"}:
+        return "right span"
+    if normalized:
+        return normalized
+    return "one span"
+
+
+def join_spoken_list(items: list[str]) -> str:
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]}, and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
 
 
 def _number_words(value: int) -> str:

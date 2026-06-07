@@ -32,6 +32,7 @@ final class MeasurementModelsTests: XCTestCase {
         XCTAssertEqual(preview.status, .likelyOffLayout)
         XCTAssertFalse(preview.passesWithTolerance)
         XCTAssertEqual(preview.detailText, "1.00 in over 16 in +/- 1 in")
+        XCTAssertEqual(preview.toleranceViolationInches, 1.0)
     }
 
     func testSpacingPreviewFailsWhenTooTight() {
@@ -40,5 +41,31 @@ final class MeasurementModelsTests: XCTestCase {
         XCTAssertEqual(preview.status, .likelyOffLayout)
         XCTAssertFalse(preview.passesWithTolerance)
         XCTAssertEqual(preview.detailText, "1.00 in short of 16 in +/- 1 in")
+        XCTAssertEqual(preview.toleranceViolationInches, 1.0)
+    }
+
+    func testFailingMeasurementsHaveHigherInspectionPriorityThanPassingMeasurements() {
+        let passing = StudSpacingPreview(measuredInches: 16)
+        let failing = StudSpacingPreview(measuredInches: 19.3)
+
+        XCTAssertGreaterThan(failing.inspectionPriority, passing.inspectionPriority)
+        XCTAssertEqual(failing.toleranceViolationInches, 2.3, accuracy: 0.001)
+    }
+
+    func testVerdictSummarizesMultipleMeasuredSpans() {
+        let verdict = FramingCodePreview.verdict(
+            spacingIn: 19.3,
+            confidence: 0.86,
+            segments: [
+                LumberMeasurementSegment(left: .zero, right: .zero, spacingIn: 16, confidence: 0.89),
+                LumberMeasurementSegment(left: .zero, right: .zero, spacingIn: 19.3, confidence: 0.86),
+            ]
+        )
+
+        XCTAssertEqual(verdict.status, .fail)
+        XCTAssertEqual(verdict.spans.count, 2)
+        XCTAssertEqual(verdict.headline, "1 of 2 measured spans need recheck")
+        XCTAssertTrue(verdict.detail.contains("Left: 16.00 in pass"))
+        XCTAssertTrue(verdict.detail.contains("Right: 19.30 in recheck"))
     }
 }

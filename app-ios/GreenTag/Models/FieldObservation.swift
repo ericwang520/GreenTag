@@ -9,6 +9,7 @@ struct FieldObservation: Encodable {
     let inspectionItem: String
     let location: ObservationLocation
     let measurement: ObservationMeasurement
+    let measurements: [ObservationMeasurement]
     let detections: [ObservationDetection]
     let questionForAgent: String
 
@@ -17,6 +18,7 @@ struct FieldObservation: Encodable {
         inspectionItem: String = InspectionKind.woodStudSpacing.rawValue,
         location: ObservationLocation,
         measurement: ObservationMeasurement,
+        measurements: [ObservationMeasurement] = [],
         detections: [ObservationDetection],
         questionForAgent: String = "Does this pass local framing code, and what should I do next?"
     ) {
@@ -24,6 +26,7 @@ struct FieldObservation: Encodable {
         self.inspectionItem = inspectionItem
         self.location = location
         self.measurement = measurement
+        self.measurements = measurements
         self.detections = detections
         self.questionForAgent = questionForAgent
     }
@@ -35,6 +38,7 @@ struct FieldObservation: Encodable {
         case inspectionItem = "inspection_item"
         case location
         case measurement
+        case measurements
         case detections
         case questionForAgent = "question_for_agent"
     }
@@ -49,11 +53,13 @@ struct ObservationMeasurement: Encodable {
     let spacingIn: Double
     let confidence: Double
     let method = "center_to_center"
+    var label: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case spacingIn = "spacing_in"
         case confidence
         case method
+        case label
     }
 }
 

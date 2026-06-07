@@ -75,6 +75,26 @@ struct StudSpacingPreview {
         measuredInches >= minAllowedInches && measuredInches <= maxAllowedInches
     }
 
+    var toleranceViolationInches: Double {
+        if measuredInches < minAllowedInches {
+            return minAllowedInches - measuredInches
+        }
+
+        if measuredInches > maxAllowedInches {
+            return measuredInches - maxAllowedInches
+        }
+
+        return 0
+    }
+
+    var inspectionPriority: Double {
+        if passesWithTolerance {
+            return absoluteDeltaInches
+        }
+
+        return 1_000 + toleranceViolationInches
+    }
+
     var status: SpacingPreviewStatus {
         if passesWithTolerance {
             return .likelyOnLayout
