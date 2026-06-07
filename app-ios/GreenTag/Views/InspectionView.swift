@@ -33,6 +33,14 @@ struct InspectionView: View {
     @State private var verdict: Verdict?
     @State private var inspectionChecks: [ObservationInspectionCheck] = []
 
+    // Auto-announce: when a confident reading holds steady, the agent proactively
+    // speaks the (multi-span) verdict — no button, no question. These track the
+    // last-spoken reading and a short dwell so it announces on a settled reading
+    // and re-announces only when it materially changes (not on every jittery frame).
+    @State private var lastAnnouncedSignature: String?
+    @State private var pendingSignature: String?
+    @State private var pendingSince = Date.distantPast
+
     private var hasConfirmedMeasurement: Bool {
         confidence >= minimumConfidence && spacingIn > 0
     }
@@ -112,6 +120,8 @@ struct InspectionView: View {
                     // Keep the agent's live reading fresh so "is this one ok?"
                     // works hands-free, before any lock tap. Throttled in-session.
                     streamReadingToAgent(spacing: spacing, confidence: conf)
+                    // And once it settles, have the agent proactively speak the verdict.
+                    autoAnnounceIfStable(spacing: spacing, confidence: conf)
                 },
                 onMeasurementSegmentsUpdated: { segments in
                     guard verdict == nil else { return }
@@ -366,6 +376,8 @@ struct InspectionView: View {
             verdict = result
         }
         inspectionChecks.append(currentCheck)
+        // This reading was just spoken; don't let auto-announce repeat it.
+        lastAnnouncedSignature = readingSignature()
         // Hand the raw measurement to the agent over the data channel; it
         // retrieves the clause and announces the ruling by voice.
         Task { await voice.send(observation) }
@@ -383,6 +395,48 @@ struct InspectionView: View {
             announce: false
         )
         Task { await voice.streamReading(observation, spacingIn: spacing) }
+    }
+
+    /// A stable "fingerprint" of the current reading: per-span rounded spacing +
+    /// pass/fail. Used to tell when the reading has materially changed and is
+    /// worth speaking again. Nil when nothing is measured yet.
+    private func readingSignature() -> String? {
+        let measures = observationMeasurements()
+        guard !measures.isEmpty else { return nil }
+        return measures.map { m in
+            let rounded = (m.spacingIn * 2).rounded() / 2
+            let pass = StudSpacingPreview(measuredInches: m.spacingIn).passesWithTolerance
+            return "\(m.label ?? "?"):\(rounded):\(pass ? "p" : "f")"
+        }.joined(separator: "|")
+    }
+
+    /// Once a confident reading holds steady for a beat, send one announce=true so
+    /// the agent proactively speaks the (multi-span) verdict — no button, no
+    /// question. Debounced by signature + dwell so it speaks on a settled reading
+    /// and re-speaks only when it materially changes; silent while a verdict card
+    /// is up, and never auto-rules on a low-confidence reading.
+    private func autoAnnounceIfStable(spacing: Double, confidence conf: Double) {
+        guard voice.isConnected, spacing > 0, verdict == nil else { return }
+        let measures = observationMeasurements()
+        let minConf = measures.map(\.confidence).min() ?? conf
+        guard minConf >= FramingCodePreview.minConfidence else { return }
+
+        guard let sig = readingSignature() else { return }
+        let now = Date()
+        if sig != pendingSignature {
+            pendingSignature = sig
+            pendingSince = now
+            return
+        }
+        guard now.timeIntervalSince(pendingSince) >= 1.2, sig != lastAnnouncedSignature else { return }
+        lastAnnouncedSignature = sig
+        let observation = makeObservation(
+            observationID: appModel.nextObservationID(),
+            spacingIn: spacing,
+            confidence: conf,
+            announce: true
+        )
+        Task { await voice.send(observation) }
     }
 
     private func makeObservation(
@@ -449,6 +503,9 @@ struct InspectionView: View {
     }
 
     private func resumeScanning() {
+        // Re-arm auto-announce so the next settled reading is spoken again.
+        lastAnnouncedSignature = nil
+        pendingSignature = nil
         withAnimation(.easeInOut(duration: 0.25)) {
             verdict = nil
         }
