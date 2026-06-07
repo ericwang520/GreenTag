@@ -99,7 +99,11 @@ def _make_speak(session: AgentSession):
         chunks = await _lookup_code_chunks(obs)
         code = requirement_from_chunks(chunks)
         user_input, instructions = build_announcement(obs, code)
-        session.generate_reply(user_input=user_input, instructions=instructions)
+        session.generate_reply(
+            user_input=user_input,
+            instructions=instructions,
+            allow_interruptions=False,
+        )
 
     return speak
 
@@ -340,14 +344,25 @@ async def my_agent(ctx: JobContext):
         # MiniMax Speech-02 via the official livekit-plugins-minimax plugin (reads
         # MINIMAX_API_KEY from env). Use "speech-02-turbo" for lower latency.
         # Voices: https://docs.livekit.io/agents/models/tts/plugins/minimax/
-        tts=minimax.TTS(model="speech-02-hd", voice="English_Explanatory_Man"),
+        tts=minimax.TTS(
+            model="speech-02-turbo",
+            voice="English_Explanatory_Man",
+            speed=0.95,
+            text_normalization=True,
+        ),
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
-        preemptive_generation=True,
+        # Prefer stable turn-taking on a physical phone over shaving a little
+        # latency: preemptive generation can make field audio feel jumpy when
+        # the model starts answering before the iPhone/turn detector fully
+        # settles the user's turn.
+        preemptive_generation=False,
+        min_interruption_duration=0.8,
+        min_interruption_words=3,
+        false_interruption_timeout=1.5,
+        resume_false_interruption=True,
     )
 
     # Start the session, which initializes the voice pipeline and warms up the models
