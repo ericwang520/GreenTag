@@ -168,13 +168,24 @@ struct ARInspectionView: UIViewRepresentable {
                     lhs.frame.midX < rhs.frame.midX
                 }
 
-            guard let first = sortedDetections.first,
-                  let last = sortedDetections.last,
-                  first.id != last.id else {
+            guard sortedDetections.count >= 2 else {
                 return nil
             }
 
-            return (first.center, last.center, min(first.confidence, last.confidence))
+            let closestPair = zip(sortedDetections, sortedDetections.dropFirst())
+                .min { lhs, rhs in
+                    abs(lhs.1.center.x - lhs.0.center.x) < abs(rhs.1.center.x - rhs.0.center.x)
+                }
+
+            guard let closestPair else {
+                return nil
+            }
+
+            return (
+                closestPair.0.center,
+                closestPair.1.center,
+                min(closestPair.0.confidence, closestPair.1.confidence)
+            )
         }
 
         private func detectLumberIfNeeded(in arView: ARView) {
