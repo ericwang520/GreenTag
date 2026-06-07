@@ -6,8 +6,10 @@ import UIKit
 
 struct ARInspectionView: UIViewRepresentable {
     let roboflowAPIKey: String
+    let minimumConfidence: Double
     let onMeasurementUpdated: (Double, Double) -> Void
     let onDetectionsUpdated: ([LumberDetection]) -> Void
+    let onDebugFrameUpdated: (RoboflowDebugFrame) -> Void
     let onDetectorStatusUpdated: (String) -> Void
 
     func makeUIView(context: Context) -> ARView {
@@ -29,14 +31,16 @@ struct ARInspectionView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: ARView, context: Context) {
-        context.coordinator.update(apiKey: roboflowAPIKey)
+        context.coordinator.update(apiKey: roboflowAPIKey, minimumConfidence: minimumConfidence)
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             roboflowAPIKey: roboflowAPIKey,
+            minimumConfidence: minimumConfidence,
             onMeasurementUpdated: onMeasurementUpdated,
             onDetectionsUpdated: onDetectionsUpdated,
+            onDebugFrameUpdated: onDebugFrameUpdated,
             onDetectorStatusUpdated: onDetectorStatusUpdated
         )
     }
@@ -51,8 +55,10 @@ struct ARInspectionView: UIViewRepresentable {
         weak var arView: ARView?
 
         private var roboflowAPIKey: String
+        private var minimumConfidence: Double
         private let onMeasurementUpdated: (Double, Double) -> Void
         private let onDetectionsUpdated: ([LumberDetection]) -> Void
+        private let onDebugFrameUpdated: (RoboflowDebugFrame) -> Void
         private let onDetectorStatusUpdated: (String) -> Void
         private let imageContext = CIContext()
         private var detector: RoboflowLumberDetector?
@@ -63,18 +69,23 @@ struct ARInspectionView: UIViewRepresentable {
 
         init(
             roboflowAPIKey: String,
+            minimumConfidence: Double,
             onMeasurementUpdated: @escaping (Double, Double) -> Void,
             onDetectionsUpdated: @escaping ([LumberDetection]) -> Void,
+            onDebugFrameUpdated: @escaping (RoboflowDebugFrame) -> Void,
             onDetectorStatusUpdated: @escaping (String) -> Void
         ) {
             self.roboflowAPIKey = roboflowAPIKey
+            self.minimumConfidence = minimumConfidence
             self.onMeasurementUpdated = onMeasurementUpdated
             self.onDetectionsUpdated = onDetectionsUpdated
+            self.onDebugFrameUpdated = onDebugFrameUpdated
             self.onDetectorStatusUpdated = onDetectorStatusUpdated
         }
 
-        func update(apiKey: String) {
+        func update(apiKey: String, minimumConfidence: Double) {
             let normalizedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            self.minimumConfidence = minimumConfidence
             guard normalizedKey != roboflowAPIKey else { return }
 
             roboflowAPIKey = normalizedKey
@@ -144,7 +155,7 @@ struct ARInspectionView: UIViewRepresentable {
 
         private func selectedMeasurementPair() -> (left: CGPoint, right: CGPoint, confidence: Double)? {
             let sortedDetections = screenDetections
-                .filter { $0.confidence >= RoboflowLumberDetectorConfiguration.minimumConfidence }
+                .filter { $0.confidence >= minimumConfidence }
                 .sorted { lhs, rhs in
                     lhs.frame.midX < rhs.frame.midX
                 }
@@ -191,8 +202,12 @@ struct ARInspectionView: UIViewRepresentable {
                         return
                     }
 
-                    let imageDetections = try await detector?.detectLumber(in: image) ?? []
-                    screenDetections = imageDetections.map { detection in
+                    let result = try await detector?.detectLumber(
+                        in: image,
+                        minimumConfidence: minimumConfidence
+                    ) ?? RoboflowDetectionResult(acceptedLumber: [], debugDetections: [])
+                    onDebugFrameUpdated(RoboflowDebugFrame(image: image, detections: result.debugDetections))
+                    screenDetections = result.acceptedLumber.map { detection in
                         LumberDetection(
                             frame: self.scale(detection.frame, from: image.size, to: viewSize),
                             confidence: detection.confidence,

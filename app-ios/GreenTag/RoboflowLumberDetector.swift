@@ -14,10 +14,30 @@ struct LumberDetection: Identifiable, Equatable {
     }
 }
 
+struct RoboflowDebugDetection: Identifiable, Equatable {
+    let id = UUID()
+    let frame: CGRect
+    let confidence: Double
+    let className: String
+    let accepted: Bool
+    let reason: String
+}
+
+struct RoboflowDetectionResult {
+    let acceptedLumber: [LumberDetection]
+    let debugDetections: [RoboflowDebugDetection]
+}
+
+struct RoboflowDebugFrame {
+    let image: UIImage
+    let detections: [RoboflowDebugDetection]
+}
+
 enum RoboflowLumberDetectorConfiguration {
     static let modelID = "lumber-v2-jrf2b"
     static let modelVersion = 4
-    static let minimumConfidence = 0.50
+    static let modelOutputThreshold = 0.05
+    static let defaultMinimumConfidence = 0.50
 }
 
 @MainActor
@@ -42,14 +62,14 @@ final class RoboflowLumberDetector {
         }
 
         loadedModel.configure(
-            threshold: RoboflowLumberDetectorConfiguration.minimumConfidence,
+            threshold: RoboflowLumberDetectorConfiguration.modelOutputThreshold,
             overlap: 0.45,
-            maxObjects: 8
+            maxObjects: 20
         )
         model = loadedModel
     }
 
-    func detectLumber(in image: UIImage) async throws -> [LumberDetection] {
+    func detectLumber(in image: UIImage, minimumConfidence: Double) async throws -> RoboflowDetectionResult {
         guard let model else {
             throw DetectorError.modelNotPrepared
         }
@@ -62,6 +82,7 @@ final class RoboflowLumberDetector {
         let rawPredictions = predictions ?? []
         print("Roboflow detections raw_count=\(rawPredictions.count)")
 
+        var debugDetections: [RoboflowDebugDetection] = []
         let lumberDetections: [LumberDetection] = rawPredictions.compactMap { prediction in
             guard let object = prediction as? RFObjectDetectionPrediction else {
                 print("Roboflow detection unsupported_prediction=\(type(of: prediction))")
@@ -73,15 +94,18 @@ final class RoboflowLumberDetector {
                 .lowercased()
             guard normalizedClass == "lumber" else {
                 printDetection(object, accepted: false, reason: "not_lumber")
+                debugDetections.append(debugDetection(from: object, accepted: false, reason: "not_lumber"))
                 return nil
             }
 
-            guard Double(object.confidence) >= RoboflowLumberDetectorConfiguration.minimumConfidence else {
+            guard Double(object.confidence) >= minimumConfidence else {
                 printDetection(object, accepted: false, reason: "below_threshold")
+                debugDetections.append(debugDetection(from: object, accepted: false, reason: "below_threshold"))
                 return nil
             }
 
             printDetection(object, accepted: true, reason: "accepted")
+            debugDetections.append(debugDetection(from: object, accepted: true, reason: "accepted"))
 
             return LumberDetection(
                 frame: object.box,
@@ -91,7 +115,7 @@ final class RoboflowLumberDetector {
         }
 
         print("Roboflow detections accepted_lumber_count=\(lumberDetections.count)")
-        return lumberDetections
+        return RoboflowDetectionResult(acceptedLumber: lumberDetections, debugDetections: debugDetections)
     }
 
     private func printDetection(_ object: RFObjectDetectionPrediction, accepted: Bool, reason: String) {
@@ -107,6 +131,20 @@ final class RoboflowLumberDetector {
                 object.box.size.width,
                 object.box.size.height
             )
+        )
+    }
+
+    private func debugDetection(
+        from object: RFObjectDetectionPrediction,
+        accepted: Bool,
+        reason: String
+    ) -> RoboflowDebugDetection {
+        RoboflowDebugDetection(
+            frame: object.box,
+            confidence: Double(object.confidence),
+            className: object.className,
+            accepted: accepted,
+            reason: reason
         )
     }
 

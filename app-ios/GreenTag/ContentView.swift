@@ -1,5 +1,6 @@
 import AVFoundation
 import SwiftUI
+import UIKit
 
 struct FieldObservation: Encodable {
     let event = "field_observation.updated"
@@ -62,6 +63,8 @@ struct ContentView: View {
     @State private var isPublishing = false
     @State private var roboflowStatus = "Loading vision"
     @State private var lumberDetections: [LumberDetection] = []
+    @State private var minimumConfidence = RoboflowLumberDetectorConfiguration.defaultMinimumConfidence
+    @State private var debugFrame: RoboflowDebugFrame?
     @State private var isAutoPublishing = true
     @State private var lastPublishedAt = Date.distantPast
     @State private var lastPublishedObservationSignature = ""
@@ -91,7 +94,7 @@ struct ContentView: View {
     }
 
     private var hasConfirmedMeasurement: Bool {
-        confidence >= RoboflowLumberDetectorConfiguration.minimumConfidence
+        confidence >= minimumConfidence
     }
 
     private var observationJSON: String {
@@ -113,6 +116,7 @@ struct ContentView: View {
             if isARSessionVisible {
                 ARInspectionView(
                     roboflowAPIKey: AppSecrets.roboflowAPIKey,
+                    minimumConfidence: minimumConfidence,
                     onMeasurementUpdated: { spacing, confidence in
                         spacingIn = spacing
                         self.confidence = confidence
@@ -121,6 +125,9 @@ struct ContentView: View {
                     },
                     onDetectionsUpdated: { detections in
                         lumberDetections = detections
+                    },
+                    onDebugFrameUpdated: { frame in
+                        debugFrame = frame
                     },
                     onDetectorStatusUpdated: { status in
                         roboflowStatus = status
@@ -131,6 +138,7 @@ struct ContentView: View {
                 ARGuideOverlay(
                     spacingIn: spacingIn,
                     detections: lumberDetections,
+                    minimumConfidence: minimumConfidence,
                     hasConfirmedMeasurement: hasConfirmedMeasurement
                 )
                     .ignoresSafeArea()
@@ -141,10 +149,12 @@ struct ContentView: View {
                     spacingIn: spacingIn,
                     confidence: confidence,
                     hasConfirmedMeasurement: hasConfirmedMeasurement,
+                    minimumConfidence: $minimumConfidence,
                     roboflowStatus: roboflowStatus,
                     detectionCount: lumberDetections.count,
                     publishStatus: publishStatus,
-                    spacingPreview: spacingPreview
+                    spacingPreview: spacingPreview,
+                    debugFrame: debugFrame
                 )
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -502,7 +512,7 @@ struct ContentView: View {
 
     private func publishObservationIfNeeded() {
         guard isAutoPublishing,
-              confidence >= RoboflowLumberDetectorConfiguration.minimumConfidence else { return }
+              confidence >= minimumConfidence else { return }
 
         let now = Date()
         guard now.timeIntervalSince(lastPublishedAt) >= 2.0 else { return }
@@ -549,13 +559,15 @@ private struct CameraHUD: View {
     let spacingIn: Double
     let confidence: Double
     let hasConfirmedMeasurement: Bool
+    @Binding var minimumConfidence: Double
     let roboflowStatus: String
     let detectionCount: Int
     let publishStatus: String
     let spacingPreview: StudSpacingPreview
+    let debugFrame: RoboflowDebugFrame?
 
     private var minimumConfidencePercent: Int {
-        Int((RoboflowLumberDetectorConfiguration.minimumConfidence * 100).rounded())
+        Int((minimumConfidence * 100).rounded())
     }
 
     private var statusColor: Color {
@@ -592,6 +604,15 @@ private struct CameraHUD: View {
                     .padding(.vertical, 7)
                     .background(.green, in: Capsule())
             }
+
+            HStack(alignment: .top) {
+                thresholdControl
+
+                Spacer(minLength: 12)
+
+                RoboflowDebugFramePreview(debugFrame: debugFrame)
+            }
+            .padding(.top, 8)
 
             Spacer()
 
@@ -631,13 +652,117 @@ private struct CameraHUD: View {
                 .background(.black.opacity(0.62), in: RoundedRectangle(cornerRadius: 8))
             }
         }
-        .allowsHitTesting(false)
+    }
+
+    private var thresholdControl: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text("Threshold")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.78))
+
+                Spacer()
+
+                Text("\(minimumConfidencePercent)%")
+                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.green)
+            }
+
+            Slider(value: $minimumConfidence, in: 0.05...0.95, step: 0.05)
+                .tint(.green)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .frame(width: 178)
+        .background(.black.opacity(0.62), in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct RoboflowDebugFramePreview: View {
+    let debugFrame: RoboflowDebugFrame?
+
+    var body: some View {
+        if let debugFrame {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Roboflow view")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.78))
+
+                GeometryReader { geometry in
+                    let imageSize = debugFrame.image.size
+                    let drawRect = aspectFitRect(imageSize: imageSize, containerSize: geometry.size)
+
+                    ZStack(alignment: .topLeading) {
+                        Image(uiImage: debugFrame.image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+
+                        ForEach(debugFrame.detections) { detection in
+                            let rect = scaledRect(
+                                detection.frame,
+                                imageSize: imageSize,
+                                drawRect: drawRect
+                            )
+
+                            Rectangle()
+                                .stroke(detection.accepted ? .green : .red, lineWidth: 2)
+                                .frame(width: rect.width, height: rect.height)
+                                .position(x: rect.midX, y: rect.midY)
+
+                            Text("\(detection.className) \(Int((detection.confidence * 100).rounded()))%")
+                                .font(.system(size: 8, weight: .black))
+                                .foregroundStyle(.black)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(detection.accepted ? .green : .red, in: Capsule())
+                                .position(x: rect.midX, y: max(8, rect.minY - 8))
+                        }
+                    }
+                }
+                .frame(width: 150, height: 112)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 8)
+            .background(.black.opacity(0.62), in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    private func aspectFitRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else {
+            return .zero
+        }
+
+        let scale = min(containerSize.width / imageSize.width, containerSize.height / imageSize.height)
+        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(
+            x: (containerSize.width - size.width) / 2,
+            y: (containerSize.height - size.height) / 2,
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    private func scaledRect(_ rect: CGRect, imageSize: CGSize, drawRect: CGRect) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else {
+            return .zero
+        }
+
+        return CGRect(
+            x: drawRect.minX + rect.minX * drawRect.width / imageSize.width,
+            y: drawRect.minY + rect.minY * drawRect.height / imageSize.height,
+            width: rect.width * drawRect.width / imageSize.width,
+            height: rect.height * drawRect.height / imageSize.height
+        )
     }
 }
 
 private struct ARGuideOverlay: View {
     let spacingIn: Double
     let detections: [LumberDetection]
+    let minimumConfidence: Double
     let hasConfirmedMeasurement: Bool
 
     var body: some View {
@@ -702,7 +827,7 @@ private struct ARGuideOverlay: View {
 
     private func selectedPair(in size: CGSize) -> (left: CGPoint, right: CGPoint)? {
         let sortedDetections = detections
-            .filter { $0.confidence >= RoboflowLumberDetectorConfiguration.minimumConfidence }
+            .filter { $0.confidence >= minimumConfidence }
             .sorted { lhs, rhs in
                 lhs.frame.midX < rhs.frame.midX
             }
