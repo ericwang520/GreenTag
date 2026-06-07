@@ -128,25 +128,63 @@ struct ContentView: View {
                     .ignoresSafeArea()
             }
 
-            VStack(alignment: .leading, spacing: 18) {
-                header
-
-                if !isARSessionVisible {
-                    cameraStartPanel
-                } else {
-                    arStatusPanel
-                }
-
-                Spacer()
-
-                roboflowPanel
-                measurementPanel
-                agentEndpointPanel
-                agentPayloadPanel
+            if isARSessionVisible {
+                CameraHUD(
+                    spacingIn: spacingIn,
+                    confidence: confidence,
+                    roboflowStatus: roboflowStatus,
+                    detectionCount: lumberDetections.count,
+                    publishStatus: publishStatus,
+                    spacingPreview: spacingPreview
+                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            } else {
+                cameraPermissionOverlay
             }
-            .padding(18)
         }
         .preferredColorScheme(.dark)
+        .task {
+            await prepareCamera()
+        }
+    }
+
+    private var cameraPermissionOverlay: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "camera.viewfinder")
+                .font(.system(size: 38, weight: .semibold))
+                .foregroundStyle(.green)
+
+            Text(cameraStartTitle)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.white)
+
+            Text(cameraStartMessage)
+                .font(.system(size: 14, weight: .medium))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.white.opacity(0.70))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                Task {
+                    await prepareCamera()
+                }
+            } label: {
+                Label(isPreparingCamera ? "Starting" : "Start Camera", systemImage: "camera.fill")
+                    .font(.system(size: 15, weight: .bold))
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(isPreparingCamera || cameraAuthorizationStatus == .denied || cameraAuthorizationStatus == .restricted)
+        }
+        .padding(22)
+        .frame(maxWidth: 320)
+        .background(.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        )
+        .padding(24)
     }
 
     private var header: some View {
@@ -497,6 +535,87 @@ struct ContentView: View {
     }
 }
 
+private struct CameraHUD: View {
+    let spacingIn: Double
+    let confidence: Double
+    let roboflowStatus: String
+    let detectionCount: Int
+    let publishStatus: String
+    let spacingPreview: StudSpacingPreview
+
+    private var statusColor: Color {
+        switch spacingPreview.status {
+        case .likelyOnLayout:
+            .green
+        case .checkLayout:
+            .orange
+        case .likelyOffLayout:
+            .red
+        }
+    }
+
+    var body: some View {
+        VStack {
+            HStack {
+                Label(roboflowStatus, systemImage: "viewfinder")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(.black.opacity(0.58), in: Capsule())
+
+                Spacer()
+
+                Text("\(detectionCount) lumber")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(.green, in: Capsule())
+            }
+
+            Spacer()
+
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(spacingPreview.status.title)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(statusColor)
+
+                    Text(spacingPreview.detailText)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.78))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(.black.opacity(0.58), in: RoundedRectangle(cornerRadius: 8))
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(String(format: "%.2f in", spacingIn))
+                        .font(.system(size: 30, weight: .black, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+
+                    Text("\(Int((confidence * 100).rounded()))% confidence")
+                        .font(.system(size: 12, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.78))
+
+                    Text(publishStatus)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                .padding(.horizontal, 13)
+                .padding(.vertical, 10)
+                .background(.black.opacity(0.62), in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 private struct ARGuideOverlay: View {
     let spacingIn: Double
     let detections: [LumberDetection]
@@ -507,10 +626,20 @@ private struct ARGuideOverlay: View {
 
             ZStack(alignment: .topLeading) {
                 ForEach(detections) { detection in
-                    Rectangle()
-                        .stroke(.orange, style: StrokeStyle(lineWidth: 2, dash: [7, 5]))
-                        .frame(width: detection.frame.width, height: detection.frame.height)
-                        .position(detection.center)
+                    ZStack(alignment: .topLeading) {
+                        Rectangle()
+                            .stroke(.orange, style: StrokeStyle(lineWidth: 2, dash: [7, 5]))
+
+                        Text("\(detection.className) \(Int((detection.confidence * 100).rounded()))%")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 4)
+                            .background(.orange, in: Capsule())
+                            .offset(x: 5, y: -24)
+                    }
+                    .frame(width: max(detection.frame.width, 24), height: max(detection.frame.height, 24))
+                    .position(detection.center)
                 }
 
                 Path { path in
