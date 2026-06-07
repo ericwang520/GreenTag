@@ -514,17 +514,8 @@ private struct ARGuideOverlay: View {
 
             ZStack(alignment: .topLeading) {
                 ForEach(detections) { detection in
-                    ZStack(alignment: .topLeading) {
-                        Rectangle()
-                            .stroke(.orange, style: StrokeStyle(lineWidth: 2, dash: [7, 5]))
-                        Text("\(detection.className) \(Int((detection.confidence * 100).rounded()))%")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 4)
-                            .background(.orange, in: Capsule())
-                            .offset(x: 5, y: -24)
-                    }
+                    Rectangle()
+                        .stroke(.orange, style: StrokeStyle(lineWidth: 2, dash: [7, 5]))
                     .frame(width: max(detection.frame.width, 24), height: max(detection.frame.height, 24))
                     .position(detection.center)
                 }
@@ -602,13 +593,6 @@ private struct RoboflowDebugFramePreview: View {
                             .stroke(detection.accepted ? .green : .red, lineWidth: 2)
                             .frame(width: rect.width, height: rect.height)
                             .position(x: rect.midX, y: rect.midY)
-                        Text("\(detection.className) \(Int((detection.confidence * 100).rounded()))%")
-                            .font(.system(size: 8, weight: .black))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(detection.accepted ? .green : .red, in: Capsule())
-                            .position(x: rect.midX, y: max(8, rect.minY - 8))
                     }
                 }
             }
