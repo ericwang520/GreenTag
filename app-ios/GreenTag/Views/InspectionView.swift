@@ -511,6 +511,7 @@ private struct ARGuideOverlay: View {
     var body: some View {
         GeometryReader { geometry in
             let pair = selectedPair(in: geometry.size)
+            let pairs = adjacentPairs(in: geometry.size)
 
             ZStack(alignment: .topLeading) {
                 ForEach(detections) { detection in
@@ -521,14 +522,16 @@ private struct ARGuideOverlay: View {
                 }
 
                 if let pair, hasConfirmedMeasurement {
-                    Path { path in
-                        path.move(to: pair.left)
-                        path.addLine(to: pair.right)
-                    }
-                    .stroke(.green, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 6]))
+                    ForEach(Array(pairs.enumerated()), id: \.offset) { _, visiblePair in
+                        Path { path in
+                            path.move(to: visiblePair.left)
+                            path.addLine(to: visiblePair.right)
+                        }
+                        .stroke(.green, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 6]))
 
-                    guidePoint(at: pair.left)
-                    guidePoint(at: pair.right)
+                        guidePoint(at: visiblePair.left)
+                        guidePoint(at: visiblePair.right)
+                    }
 
                     Text(String(format: "%.2f in", spacingIn))
                         .font(.system(size: 13, weight: .bold))
@@ -553,18 +556,26 @@ private struct ARGuideOverlay: View {
         .position(point)
     }
 
-    private func selectedPair(in size: CGSize) -> (left: CGPoint, right: CGPoint)? {
+    private func adjacentPairs(in size: CGSize) -> [(left: CGPoint, right: CGPoint)] {
         let bounds = CGRect(origin: .zero, size: size)
         let sorted = detections
             .filter { $0.confidence >= minimumConfidence && bounds.contains($0.center) }
             .sorted { $0.frame.midX < $1.frame.midX }
-        guard sorted.count >= 2 else { return nil }
+        guard sorted.count >= 2 else { return [] }
 
-        let closestPair = zip(sorted, sorted.dropFirst())
-            .min { abs($0.1.center.x - $0.0.center.x) < abs($1.1.center.x - $1.0.center.x) }
+        return zip(sorted, sorted.dropFirst()).map { ($0.center, $1.center) }
+    }
+
+    private func selectedPair(in size: CGSize) -> (left: CGPoint, right: CGPoint)? {
+        let pairs = adjacentPairs(in: size)
+        guard !pairs.isEmpty else { return nil }
+
+        let closestPair = pairs.min { lhs, rhs in
+            abs(lhs.right.x - lhs.left.x) < abs(rhs.right.x - rhs.left.x)
+        }
         guard let closestPair else { return nil }
 
-        return (closestPair.0.center, closestPair.1.center)
+        return closestPair
     }
 }
 
