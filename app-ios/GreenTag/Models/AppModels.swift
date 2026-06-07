@@ -113,11 +113,7 @@ enum FramingCodePreview {
     static func verdict(spacingIn: Double, confidence: Double) -> Verdict {
         let preview = StudSpacingPreview(measuredInches: spacingIn)
 
-        let status: VerdictStatus = switch preview.status {
-        case .likelyOnLayout: .pass
-        case .checkLayout: .pass
-        case .likelyOffLayout: .fail
-        }
+        let status: VerdictStatus = preview.passesWithTolerance ? .pass : .fail
 
         let headline = switch status {
         case .pass: "On layout — likely passes"
