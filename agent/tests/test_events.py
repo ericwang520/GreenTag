@@ -3,21 +3,22 @@ from contextlib import asynccontextmanager
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
+from agent import _attach_spacing_threshold
 from events import (
     CodeRequirement,
     EventDispatcher,
     ObservationError,
+    ObservationStore,
     build_announcement,
     build_spoken_announcement,
     contains_wake_word,
     evaluate_compliance,
+    format_current_reading,
     format_inspection_summary,
     make_events_app,
     parse_field_observation,
     requirement_from_chunks,
 )
-from agent import _attach_spacing_threshold
-
 
 # --- wake word ---------------------------------------------------------------
 
@@ -384,6 +385,115 @@ async def test_dispatch_raises_on_bad_event() -> None:
     dispatcher = EventDispatcher(speak)
     with pytest.raises(ObservationError):
         await dispatcher.dispatch(_obs_payload(event="nope"))
+
+
+# --- latest-observation store ------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_dispatch_updates_store_with_latest() -> None:
+    """Every valid observation refreshes the store the conversation reads from."""
+    store = ObservationStore()
+
+    async def speak(obs) -> None:
+        pass
+
+    dispatcher = EventDispatcher(speak, store=store)
+    await dispatcher.dispatch(_obs_payload(observation_id="obs_001"))
+    assert store.latest is not None
+    assert store.latest.observation_id == "obs_001"
+
+    await dispatcher.dispatch(
+        _obs_payload(
+            observation_id="obs_002",
+            measurement={"spacing_in": 24.0, "confidence": 0.9},
+        )
+    )
+    assert store.latest.observation_id == "obs_002"
+    assert store.latest.spacing_in == 24.0
+
+
+@pytest.mark.asyncio
+async def test_dispatch_updates_store_even_on_duplicate() -> None:
+    """A re-sent id must still refresh latest (dedup only gates speaking)."""
+    store = ObservationStore()
+
+    async def speak(obs) -> None:
+        pass
+
+    dispatcher = EventDispatcher(speak, store=store)
+    await dispatcher.dispatch(_obs_payload(observation_id="obs_001"))
+    result = await dispatcher.dispatch(_obs_payload(observation_id="obs_001"))
+    assert result["status"] == "duplicate"  # not announced again
+    assert store.latest is not None  # but latest is still populated
+
+
+def test_store_starts_empty() -> None:
+    assert ObservationStore().latest is None
+
+
+@pytest.mark.asyncio
+async def test_silent_stream_update_stores_without_speaking() -> None:
+    """announce=false: refresh the store but do not narrate (continuous stream)."""
+    store = ObservationStore()
+    spoken: list[str] = []
+
+    async def speak(obs) -> None:
+        spoken.append(obs.observation_id)
+
+    dispatcher = EventDispatcher(speak, store=store)
+    result = await dispatcher.dispatch(
+        _obs_payload(observation_id="live_1", announce=False)
+    )
+    assert result["status"] == "stored"
+    assert spoken == []  # silent
+    assert store.latest.observation_id == "live_1"  # but remembered
+
+
+@pytest.mark.asyncio
+async def test_announce_true_still_speaks() -> None:
+    """An explicit announce (the lock tap) still triggers proactive speech."""
+    spoken: list[str] = []
+
+    async def speak(obs) -> None:
+        spoken.append(obs.observation_id)
+
+    dispatcher = EventDispatcher(speak)
+    result = await dispatcher.dispatch(
+        _obs_payload(observation_id="lock_1", announce=True)
+    )
+    assert result["status"] == "announced"
+    assert spoken == ["lock_1"]
+
+
+def test_parse_rejects_non_bool_announce() -> None:
+    with pytest.raises(ObservationError):
+        parse_field_observation(_obs_payload(announce="yes"))
+
+
+# --- current-reading rendering (the get_current_reading tool's source) --------
+
+
+def test_format_current_reading_none_asks_to_aim() -> None:
+    text = format_current_reading(None)
+    assert "aim" in text.lower() or "no measurement" in text.lower()
+
+
+def test_format_current_reading_includes_spacing_and_city() -> None:
+    obs = parse_field_observation(_obs_payload())  # 15.25", SF
+    text = format_current_reading(obs)
+    assert "15.25" in text
+    assert "San Francisco" in text
+
+
+def test_format_current_reading_low_confidence_says_reaim() -> None:
+    obs = parse_field_observation(
+        _obs_payload(measurement={"spacing_in": 15.25, "confidence": 0.4})
+    )
+    text = format_current_reading(obs)
+    lowered = text.lower()
+    assert "re-aim" in lowered or "approximate" in lowered
+    assert "low" in lowered
 
 
 # --- HTTP layer --------------------------------------------------------------

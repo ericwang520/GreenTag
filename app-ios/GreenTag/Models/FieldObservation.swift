@@ -13,6 +13,10 @@ struct FieldObservation: Encodable {
     let inspectionSummary: ObservationInspectionSummary?
     let detections: [ObservationDetection]
     let questionForAgent: String
+    /// Whether the agent should announce this reading out loud. Continuous live
+    /// stream updates send `false` (refresh the agent's state silently); the
+    /// explicit "lock & check" tap sends `true` to trigger a spoken verdict.
+    let announce: Bool
 
     init(
         observationID: String,
@@ -22,7 +26,8 @@ struct FieldObservation: Encodable {
         measurements: [ObservationMeasurement] = [],
         inspectionSummary: ObservationInspectionSummary? = nil,
         detections: [ObservationDetection],
-        questionForAgent: String = "Does this pass local framing code, and what should I do next?"
+        questionForAgent: String = "Does this pass local framing code, and what should I do next?",
+        announce: Bool = true
     ) {
         self.observationID = observationID
         self.inspectionItem = inspectionItem
@@ -32,6 +37,7 @@ struct FieldObservation: Encodable {
         self.inspectionSummary = inspectionSummary
         self.detections = detections
         self.questionForAgent = questionForAgent
+        self.announce = announce
     }
 
     enum CodingKeys: String, CodingKey {
@@ -45,6 +51,7 @@ struct FieldObservation: Encodable {
         case inspectionSummary = "inspection_summary"
         case detections
         case questionForAgent = "question_for_agent"
+        case announce
     }
 }
 

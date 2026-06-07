@@ -39,7 +39,10 @@ enum SpacingPreviewStatus {
 
 struct StudSpacingPreview {
     static let defaultMaxSpacingInches = 16.0
-    static let defaultToleranceInches = 1.0
+    // Slack on the comparison, in inches, to absorb measurement noise. Matches
+    // the agent's SPACING_TOLERANCE_IN (events.py) so the on-device card and the
+    // spoken verdict never disagree.
+    static let defaultToleranceInches = 0.5
 
     let measuredInches: Double
     let targetInches: Double
@@ -55,63 +58,46 @@ struct StudSpacingPreview {
         self.toleranceInches = toleranceInches
     }
 
-    var deltaInches: Double {
-        measuredInches - targetInches
-    }
-
-    var absoluteDeltaInches: Double {
-        abs(deltaInches)
-    }
-
-    var minAllowedInches: Double {
-        targetInches - toleranceInches
-    }
-
     var maxAllowedInches: Double {
         targetInches + toleranceInches
     }
 
+    /// "Max 16 on center" is an upper bound: tighter spacing (more studs) is
+    /// compliant. Mirrors the agent's evaluate_compliance (spacing <= max + tol),
+    /// so a 14-inch reading passes here exactly as it does in the voice verdict.
     var passesWithTolerance: Bool {
-        measuredInches >= minAllowedInches && measuredInches <= maxAllowedInches
+        measuredInches <= maxAllowedInches
     }
 
+    /// How far the reading exceeds the allowed maximum. Upper-bound only: tighter
+    /// spacing is compliant (more studs), so it never "violates". Zero when within
+    /// the limit. Mirrors the agent's rule.
     var toleranceViolationInches: Double {
-        if measuredInches < minAllowedInches {
-            return minAllowedInches - measuredInches
-        }
-
-        if measuredInches > maxAllowedInches {
-            return measuredInches - maxAllowedInches
-        }
-
-        return 0
+        max(0, measuredInches - maxAllowedInches)
     }
 
+    /// Ranking used to pick which span to surface first. Failing spans always
+    /// outrank passing ones; among failing, the worse the overage the higher;
+    /// among passing, the closer to the limit the higher (more worth a glance).
     var inspectionPriority: Double {
         if passesWithTolerance {
-            return absoluteDeltaInches
+            return measuredInches
         }
 
         return 1_000 + toleranceViolationInches
     }
 
     var status: SpacingPreviewStatus {
-        if passesWithTolerance {
-            return .likelyOnLayout
-        }
-
-        return .likelyOffLayout
+        passesWithTolerance ? .likelyOnLayout : .likelyOffLayout
     }
 
     var detailText: String {
         if passesWithTolerance {
-            return String(format: "%.2f in from %.0f in target", absoluteDeltaInches, targetInches)
+            if measuredInches <= targetInches {
+                return String(format: "%.2f in under the %.0f in limit", targetInches - measuredInches, targetInches)
+            }
+            return String(format: "%.2f in over %.0f in, within tolerance", measuredInches - targetInches, targetInches)
         }
-
-        if measuredInches < minAllowedInches {
-            return String(format: "%.2f in short of %.0f in +/- %.0f in", minAllowedInches - measuredInches, targetInches, toleranceInches)
-        }
-
-        return String(format: "%.2f in over %.0f in +/- %.0f in", measuredInches - maxAllowedInches, targetInches, toleranceInches)
+        return String(format: "%.2f in over the %.0f in limit", measuredInches - targetInches, targetInches)
     }
 }

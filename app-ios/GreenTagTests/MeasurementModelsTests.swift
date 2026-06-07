@@ -23,7 +23,7 @@ final class MeasurementModelsTests: XCTestCase {
 
         XCTAssertEqual(preview.status, .likelyOnLayout)
         XCTAssertTrue(preview.passesWithTolerance)
-        XCTAssertEqual(preview.detailText, "0.75 in from 16 in target")
+        XCTAssertEqual(preview.detailText, "0.75 in under the 16 in limit")
     }
 
     func testSpacingPreviewFailsWhenTooWide() {
@@ -31,17 +31,28 @@ final class MeasurementModelsTests: XCTestCase {
 
         XCTAssertEqual(preview.status, .likelyOffLayout)
         XCTAssertFalse(preview.passesWithTolerance)
-        XCTAssertEqual(preview.detailText, "1.00 in over 16 in +/- 1 in")
-        XCTAssertEqual(preview.toleranceViolationInches, 1.0)
+        XCTAssertEqual(preview.detailText, "2.00 in over the 16 in limit")
+        XCTAssertEqual(preview.toleranceViolationInches, 1.5, accuracy: 0.001)
     }
 
-    func testSpacingPreviewFailsWhenTooTight() {
+    // "Max 16 on center" is an upper bound: tighter spacing is more studs, which
+    // is compliant. This must pass, exactly as the voice agent rules it (the card
+    // and the spoken verdict share one rule).
+    func testSpacingPreviewPassesWhenTighter() {
         let preview = StudSpacingPreview(measuredInches: 14)
 
-        XCTAssertEqual(preview.status, .likelyOffLayout)
-        XCTAssertFalse(preview.passesWithTolerance)
-        XCTAssertEqual(preview.detailText, "1.00 in short of 16 in +/- 1 in")
-        XCTAssertEqual(preview.toleranceViolationInches, 1.0)
+        XCTAssertEqual(preview.status, .likelyOnLayout)
+        XCTAssertTrue(preview.passesWithTolerance)
+        XCTAssertEqual(preview.detailText, "2.00 in under the 16 in limit")
+        XCTAssertEqual(preview.toleranceViolationInches, 0)
+    }
+
+    // 16.3" is over 16 but within the 0.5" tolerance — passes, matching the agent.
+    func testSpacingPreviewPassesWithinTolerance() {
+        let preview = StudSpacingPreview(measuredInches: 16.3)
+
+        XCTAssertTrue(preview.passesWithTolerance)
+        XCTAssertEqual(preview.detailText, "0.30 in over 16 in, within tolerance")
     }
 
     func testFailingMeasurementsHaveHigherInspectionPriorityThanPassingMeasurements() {
@@ -49,7 +60,7 @@ final class MeasurementModelsTests: XCTestCase {
         let failing = StudSpacingPreview(measuredInches: 19.3)
 
         XCTAssertGreaterThan(failing.inspectionPriority, passing.inspectionPriority)
-        XCTAssertEqual(failing.toleranceViolationInches, 2.3, accuracy: 0.001)
+        XCTAssertEqual(failing.toleranceViolationInches, 2.8, accuracy: 0.001)
     }
 
     func testVerdictSummarizesMultipleMeasuredSpans() {
@@ -67,5 +78,17 @@ final class MeasurementModelsTests: XCTestCase {
         XCTAssertEqual(verdict.headline, "1 of 2 measured spans need recheck")
         XCTAssertTrue(verdict.detail.contains("Left: 16.00 in pass"))
         XCTAssertTrue(verdict.detail.contains("Right: 19.30 in recheck"))
+    }
+
+    func testLowConfidenceVerdictAsksForReaim() {
+        let verdict = FramingCodePreview.verdict(spacingIn: 15.25, confidence: 0.5)
+
+        XCTAssertEqual(verdict.status, .review)
+    }
+
+    func testConfidentVerdictRules() {
+        let verdict = FramingCodePreview.verdict(spacingIn: 15.25, confidence: 0.9)
+
+        XCTAssertEqual(verdict.status, .pass)
     }
 }
