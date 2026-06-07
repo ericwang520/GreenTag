@@ -94,7 +94,7 @@ Currently indexed: **San Francisco** & **Seattle** (with IRC as the model-code f
 
 ## Team
 
-Built by **Eric × Xiya** at the **YC Conversational AI Hackathon**, June 6–7, 2026.
+Built by **Eric × Holly** at the **YC Conversational AI Hackathon**, June 6–7, 2026.
 Powered by **Moss · Unsiloed · LiveKit · Deepgram · MiniMax**.
 
 ---
