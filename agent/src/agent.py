@@ -139,16 +139,23 @@ def _register_data_ingress(ctx: JobContext, dispatcher: EventDispatcher) -> None
     so no early packets are missed.
     """
 
+    # Hold a strong reference to each in-flight dispatch task; the event loop only
+    # keeps a weak ref, so without this the coroutine can be GC'd mid-flight and
+    # the observation is silently never announced.
+    pending: set[asyncio.Task] = set()
+
     @ctx.room.on("data_received")
     def _on_data(packet: rtc.DataPacket) -> None:
-        if packet.topic and packet.topic != FIELD_OBSERVATION_TOPIC:
+        if packet.topic != FIELD_OBSERVATION_TOPIC:
             return
         try:
             payload = json.loads(packet.data.decode("utf-8"))
         except Exception:
             logger.warning("field observation data packet was not valid JSON")
             return
-        asyncio.create_task(_dispatch_safely(dispatcher, payload))
+        task = asyncio.create_task(_dispatch_safely(dispatcher, payload))
+        pending.add(task)
+        task.add_done_callback(pending.discard)
 
 
 class Assistant(Agent):
