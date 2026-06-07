@@ -12,7 +12,9 @@ from livekit.agents import (
     AgentSession,
     JobContext,
     JobProcess,
+    RunContext,
     cli,
+    function_tool,
     inference,
     room_io,
 )
@@ -112,6 +114,16 @@ class Assistant(Agent):
                 model="MiniMax-M3",
                 base_url="https://api.minimax.io/v1",
                 api_key=os.getenv("MINIMAX_API_KEY"),
+                # M3 is a reasoning model: it emits its chain-of-thought inside a
+                # <think>...</think> block in the CONTENT channel. The SDK strips
+                # that block, but only on text-only deltas — when the closing
+                # </think> arrives in the same chunk as a tool call, the tool-call
+                # branch in _parse_choice returns early and the reasoning tail
+                # leaks into the spoken reply (TTS would say "The user is asking
+                # about..."). Disabling thinking removes the block entirely, which
+                # also cuts latency — both wins for a real-time voice agent. Tool
+                # calling is unaffected. MiniMax-specific; passed via extra_body.
+                extra_body={"thinking": {"type": "disabled"}},
             ),
             # To use a realtime model instead of a voice pipeline, replace the LLM
             # with a RealtimeModel and remove the STT/TTS from the AgentSession
@@ -144,6 +156,7 @@ class Assistant(Agent):
 
                 # Tools
 
+                - For ANY building code question (spacing, sizing, fasteners, egress, fire rating, etc.), call the building code lookup tool and answer only from what it returns. Never state a code requirement or number from memory.
                 - Use available tools as needed, or upon user request.
                 - Collect required inputs first. Perform actions silently if the runtime expects it.
                 - Speak outcomes clearly. If an action fails, say so once, propose a fallback, or ask how to proceed.
@@ -158,22 +171,50 @@ class Assistant(Agent):
             ),
         )
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+    @function_tool
+    async def lookup_building_code(
+        self, context: RunContext, question: str, city: str = ""
+    ) -> str:
+        """Look up the applicable building code clause for a question.
+
+        Use this whenever the inspector asks what the code requires — e.g. stud
+        or joist spacing, fastener schedules, egress, stair or handrail
+        dimensions, fire rating. The official standard MUST come from this
+        lookup; never answer a code question from memory. Cite what it returns.
+
+        Args:
+            question: The code question in plain words, e.g. "wood stud spacing
+                for a load-bearing wall" or "minimum stair handrail height".
+            city: The city the inspection is in (e.g. "Austin"), so a local
+                amendment can take precedence over the base code. Leave empty
+                if the city is unknown — the base code is queried then.
+        """
+        logger.info("building code lookup: city=%r question=%r", city, question)
+
+        # Eric's Moss retrieval lives in the sibling backend package, imported
+        # in-process (see _BACKEND_DIR above). Import lazily and stay failure-
+        # tolerant: if it's not importable or the index isn't built, tell the
+        # agent the library is unavailable rather than crashing the turn.
+        try:
+            from greentag.moss_codes import lookup_code  # Eric's module
+        except Exception:
+            logger.warning(
+                "greentag.moss_codes not importable; code lookup unavailable"
+            )
+            return "The building code library is unavailable right now."
+
+        try:
+            chunks = await lookup_code(city, question, top_k=3)
+        except Exception:
+            logger.exception("Moss lookup failed")
+            return "I couldn't reach the building code library. Please try again."
+
+        # Reuse the same chunk -> clause adapter the /events path uses, so the
+        # tool cites codes identically to the proactive announcements.
+        code = requirement_from_chunks(chunks)
+        if code is None:
+            return f"No matching building code clause was found for: {question}."
+        return f"{code.citation}: {code.summary}"
 
 
 server = AgentServer()

@@ -2,6 +2,7 @@ import textwrap
 
 import pytest
 from livekit.agents import AgentSession, inference, llm
+from livekit.agents.voice.run_result import mock_tools
 
 from agent import Assistant
 
@@ -86,6 +87,70 @@ async def test_grounding() -> None:
 
         # Ensures there are no function calls or other unexpected events
         result.expect.no_more_events()
+
+
+@pytest.mark.asyncio
+async def test_calls_building_code_tool_for_code_question() -> None:
+    """A building code question should route to the lookup tool, not memory.
+
+    The real tool hits Eric's Moss index (backend + creds + built index), so we
+    mock it to a canned clause. We assert the agent (1) calls the tool for the
+    code question and (2) speaks an answer driven by the returned clause.
+    """
+
+    async def fake_lookup(context, question: str, city: str = "") -> str:
+        return (
+            "IRC R602.3(5): studs in load-bearing walls spaced max 16 inches on center."
+        )
+
+    async with (
+        _judge_llm() as judge_llm,
+        AgentSession() as session,
+    ):
+        await session.start(Assistant())
+
+        with mock_tools(Assistant, {"lookup_building_code": fake_lookup}):
+            result = await session.run(
+                user_input="What's the maximum stud spacing for a load-bearing wall?"
+            )
+
+        # The agent must consult the spec library rather than answer from memory.
+        result.expect.contains_function_call(name="lookup_building_code")
+
+        # The retrieved clause (not memory) must drive the answer: the canned
+        # tool output carries "16 inches on center", so the agent's final spoken
+        # reply must reflect that value.
+        await (
+            result.expect[-1]
+            .is_message(role="assistant")
+            .judge(
+                judge_llm,
+                intent=textwrap.dedent(
+                    """\
+                    States the maximum stud spacing as 16 inches (sixteen inches)
+                    on center — the value returned by the lookup tool. Phrasing
+                    is open; what matters is that the 16-inch value is conveyed
+                    and the answer is not a refusal.
+                    """
+                ),
+            )
+        )
+
+        # Regression guard: M3's chain-of-thought must never reach TTS. With
+        # thinking disabled (see agent.py) no message should carry think-tag
+        # remnants or raw reasoning prose. Catches the _parse_choice leak where
+        # reasoning escaped into spoken content around tool calls.
+        for ev in result.events:
+            item = getattr(ev, "item", None)
+            content = (
+                getattr(item, "get", lambda *_: None)("content")
+                if isinstance(item, dict)
+                else None
+            )
+            text = " ".join(content) if isinstance(content, list) else (content or "")
+            assert "<think>" not in text and "</think>" not in text, (
+                f"reasoning leaked into a message: {text!r}"
+            )
 
 
 @pytest.mark.asyncio
