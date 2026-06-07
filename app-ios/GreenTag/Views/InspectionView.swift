@@ -11,7 +11,7 @@ struct InspectionView: View {
     @Environment(\.dismiss) private var dismiss
 
     @StateObject private var voice = VoiceAgentSession(
-        backendBaseURL: URL(string: "http://127.0.0.1:8000")!
+        backendBaseURL: URL(string: "https://greentag-backend-production.up.railway.app")!
     )
 
     private let kind: InspectionKind = .woodStudSpacing
