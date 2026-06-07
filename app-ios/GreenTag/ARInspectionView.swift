@@ -52,6 +52,12 @@ struct ARInspectionView: UIViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject {
+        private struct MeasurementPair {
+            let left: CGPoint
+            let right: CGPoint
+            let confidence: Double
+        }
+
         weak var arView: ARView?
 
         private var roboflowAPIKey: String
@@ -66,6 +72,16 @@ struct ARInspectionView: UIViewRepresentable {
         private var isDetecting = false
         private var displayLink: CADisplayLink?
         private var tick = 0
+        private var candidatePair: MeasurementPair?
+        private var candidatePairConfirmationCount = 0
+        private var confirmedPair: MeasurementPair?
+        private var lastDetectionTime: CFTimeInterval = 0
+        private var lastDetectionTransform: simd_float4x4?
+        private let requiredPairConfirmations = 2
+        private let pairStabilityTolerance: CGFloat = 60
+        private let minimumDetectionInterval: CFTimeInterval = 1.2
+        private let cameraTranslationThreshold: Float = 0.025
+        private let cameraRotationThreshold: Float = 0.04
 
         init(
             roboflowAPIKey: String,
@@ -91,6 +107,7 @@ struct ARInspectionView: UIViewRepresentable {
             roboflowAPIKey = normalizedKey
             detector = nil
             screenDetections = []
+            resetPairConfirmation()
             onDetectionsUpdated([])
             onDetectorStatusUpdated(normalizedKey.isEmpty ? "Missing Roboflow key" : "Roboflow ready")
         }
@@ -123,7 +140,7 @@ struct ARInspectionView: UIViewRepresentable {
                 detectLumberIfNeeded(in: arView)
             }
 
-            guard let pair = selectedMeasurementPair() else {
+            guard let pair = confirmedPair else {
                 onMeasurementUpdated(0, 0)
                 return
             }
@@ -161,8 +178,8 @@ struct ARInspectionView: UIViewRepresentable {
             return SIMD3<Float>(translation.x, translation.y, translation.z)
         }
 
-        private func selectedMeasurementPair() -> (left: CGPoint, right: CGPoint, confidence: Double)? {
-            let sortedDetections = screenDetections
+        private func selectedMeasurementPair(from detections: [LumberDetection]) -> MeasurementPair? {
+            let sortedDetections = detections
                 .filter { $0.confidence >= minimumConfidence }
                 .sorted { lhs, rhs in
                     lhs.frame.midX < rhs.frame.midX
@@ -181,10 +198,10 @@ struct ARInspectionView: UIViewRepresentable {
                 return nil
             }
 
-            return (
-                closestPair.0.center,
-                closestPair.1.center,
-                min(closestPair.0.confidence, closestPair.1.confidence)
+            return MeasurementPair(
+                left: closestPair.0.center,
+                right: closestPair.1.center,
+                confidence: min(closestPair.0.confidence, closestPair.1.confidence)
             )
         }
 
@@ -197,7 +214,18 @@ struct ARInspectionView: UIViewRepresentable {
             }
 
             guard !isDetecting, let frame = arView.session.currentFrame else { return }
+            guard shouldRunDetection(for: frame) else { return }
+
+            let transform = frame.camera.transform
+            if let lastDetectionTransform,
+               cameraMovedEnough(from: lastDetectionTransform, to: transform) {
+                resetPairConfirmation()
+                onMeasurementUpdated(0, 0)
+            }
+
             isDetecting = true
+            lastDetectionTime = CACurrentMediaTime()
+            lastDetectionTransform = transform
             onDetectorStatusUpdated("Roboflow scanning")
 
             let viewSize = arView.bounds.size
@@ -217,6 +245,7 @@ struct ARInspectionView: UIViewRepresentable {
 
                     guard let image = image(from: pixelBuffer) else {
                         screenDetections = []
+                        resetPairConfirmation()
                         onDetectionsUpdated([])
                         onDetectorStatusUpdated("No frame")
                         isDetecting = false
@@ -254,10 +283,12 @@ struct ARInspectionView: UIViewRepresentable {
                         )
                     }
                     onDetectionsUpdated(screenDetections)
-                    let status = screenDetections.count >= 2 ? "\(screenDetections.count) lumber" : "Need 2 lumber"
-                    onDetectorStatusUpdated(screenDetections.isEmpty ? "No lumber" : status)
+                    updatePairConfirmation()
+                    let status = detectorStatusForCurrentDetections()
+                    onDetectorStatusUpdated(status)
                 } catch {
                     screenDetections = []
+                    resetPairConfirmation()
                     onDetectionsUpdated([])
                     onDetectorStatusUpdated("Roboflow error")
                 }
@@ -293,6 +324,102 @@ struct ARInspectionView: UIViewRepresentable {
                 width: frame.width * scale,
                 height: frame.height * scale
             )
+        }
+
+        private func shouldRunDetection(for frame: ARFrame) -> Bool {
+            let now = CACurrentMediaTime()
+            guard now - lastDetectionTime >= minimumDetectionInterval else {
+                return false
+            }
+
+            guard let lastDetectionTransform else {
+                return true
+            }
+
+            if confirmedPair == nil {
+                return true
+            }
+
+            return cameraMovedEnough(from: lastDetectionTransform, to: frame.camera.transform)
+        }
+
+        private func cameraMovedEnough(from oldTransform: simd_float4x4, to newTransform: simd_float4x4) -> Bool {
+            let oldPosition = SIMD3<Float>(
+                oldTransform.columns.3.x,
+                oldTransform.columns.3.y,
+                oldTransform.columns.3.z
+            )
+            let newPosition = SIMD3<Float>(
+                newTransform.columns.3.x,
+                newTransform.columns.3.y,
+                newTransform.columns.3.z
+            )
+
+            let translation = simd_distance(oldPosition, newPosition)
+            let oldForward = simd_normalize(SIMD3<Float>(
+                oldTransform.columns.2.x,
+                oldTransform.columns.2.y,
+                oldTransform.columns.2.z
+            ))
+            let newForward = simd_normalize(SIMD3<Float>(
+                newTransform.columns.2.x,
+                newTransform.columns.2.y,
+                newTransform.columns.2.z
+            ))
+            let dotValue = max(-1, min(1, simd_dot(oldForward, newForward)))
+            let rotation = acos(dotValue)
+
+            return translation >= cameraTranslationThreshold || rotation >= cameraRotationThreshold
+        }
+
+        private func updatePairConfirmation() {
+            guard let pair = selectedMeasurementPair(from: screenDetections) else {
+                resetPairConfirmation()
+                onMeasurementUpdated(0, 0)
+                return
+            }
+
+            if let candidatePair, isSimilar(pair, to: candidatePair) {
+                candidatePairConfirmationCount += 1
+            } else {
+                candidatePair = pair
+                candidatePairConfirmationCount = 1
+                confirmedPair = nil
+                onMeasurementUpdated(0, 0)
+            }
+
+            if candidatePairConfirmationCount >= requiredPairConfirmations {
+                confirmedPair = pair
+            }
+        }
+
+        private func resetPairConfirmation() {
+            candidatePair = nil
+            candidatePairConfirmationCount = 0
+            confirmedPair = nil
+        }
+
+        private func isSimilar(_ lhs: MeasurementPair, to rhs: MeasurementPair) -> Bool {
+            abs(lhs.left.x - rhs.left.x) <= pairStabilityTolerance &&
+                abs(lhs.left.y - rhs.left.y) <= pairStabilityTolerance &&
+                abs(lhs.right.x - rhs.right.x) <= pairStabilityTolerance &&
+                abs(lhs.right.y - rhs.right.y) <= pairStabilityTolerance
+        }
+
+        private func detectorStatusForCurrentDetections() -> String {
+            if screenDetections.isEmpty {
+                return "No lumber"
+            }
+
+            if confirmedPair != nil {
+                return "\(screenDetections.count) lumber"
+            }
+
+            if candidatePair != nil {
+                return "Confirming studs \(candidatePairConfirmationCount)/\(requiredPairConfirmations)"
+            }
+
+            return screenDetections.count >= 2 ? "Confirming studs" : "Need 2 lumber"
         }
     }
 }
