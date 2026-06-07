@@ -160,8 +160,7 @@ struct ARInspectionView: UIViewRepresentable {
                 return
             }
 
-            let canShowProvisional = candidatePair != nil || confirmedPair != nil
-            guard canShowProvisional else {
+            guard confirmedPair != nil else {
                 onMeasurementUpdated(0, 0)
                 onMeasurementSegmentsUpdated([])
                 return
@@ -177,10 +176,8 @@ struct ARInspectionView: UIViewRepresentable {
             onMeasurementUpdated(primarySegment.spacingIn, primarySegment.confidence)
             onMeasurementSegmentsUpdated(segments)
 
-            if confirmedPair != nil {
-                lockedSegments = segments
-                lockedMeasurement = (primarySegment.spacingIn, primarySegment.confidence)
-            }
+            lockedSegments = segments
+            lockedMeasurement = (primarySegment.spacingIn, primarySegment.confidence)
         }
 
         private func worldPoint(at screenPoint: CGPoint, in arView: ARView) -> SIMD3<Float>? {
