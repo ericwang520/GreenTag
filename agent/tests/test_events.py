@@ -8,12 +8,14 @@ from events import (
     EventDispatcher,
     ObservationError,
     build_announcement,
+    build_spoken_announcement,
     contains_wake_word,
     evaluate_compliance,
     make_events_app,
     parse_field_observation,
     requirement_from_chunks,
 )
+from agent import _attach_spacing_threshold
 
 
 # --- wake word ---------------------------------------------------------------
@@ -159,6 +161,12 @@ def test_requirement_from_chunks_builds_citation_and_text() -> None:
     assert req.max_spacing_in is None  # Moss doesn't extract a numeric limit
 
 
+def test_requirement_from_chunks_uses_default_max_spacing() -> None:
+    req = requirement_from_chunks([_moss_chunk(default_max_spacing_in=16)])
+    assert req is not None
+    assert req.max_spacing_in == 16.0
+
+
 def test_requirement_from_chunks_empty_or_none() -> None:
     assert requirement_from_chunks([]) is None
     assert requirement_from_chunks(None) is None
@@ -209,6 +217,44 @@ def test_low_confidence_announcement_hedges() -> None:
     )
     _, instructions = build_announcement(obs)
     assert "rescan" in instructions.lower()
+
+
+def test_spoken_announcement_passes_without_llm_reasoning() -> None:
+    obs = parse_field_observation(_obs_payload())
+    code = CodeRequirement(
+        citation="IRC R602.3(5)",
+        summary="Studs shall be spaced not more than 16 inches on center.",
+        max_spacing_in=16.0,
+    )
+    spoken = build_spoken_announcement(obs, code)
+    assert spoken == (
+        "Pass. Measured fifteen and a quarter inches center to center; "
+        "IRC R602.3 5 allows up to sixteen inches."
+    )
+    assert "think" not in spoken.lower()
+    assert "user" not in spoken.lower()
+
+
+def test_spoken_announcement_fails_without_llm_reasoning() -> None:
+    obs = parse_field_observation(
+        _obs_payload(measurement={"spacing_in": 17.0, "confidence": 0.9})
+    )
+    code = CodeRequirement(
+        citation="IRC R602.3(5)",
+        summary="Studs shall be spaced not more than 16 inches on center.",
+        max_spacing_in=16.0,
+    )
+    spoken = build_spoken_announcement(obs, code)
+    assert spoken.startswith("Fail.")
+    assert "seventeen inches center to center" in spoken
+
+
+def test_structured_spacing_threshold_attaches_demo_limit() -> None:
+    obs = parse_field_observation(_obs_payload())
+    code = CodeRequirement(citation="IRC R602.3(5)", summary="Stud spacing table.")
+    updated = _attach_spacing_threshold(obs, code)
+    assert updated is not None
+    assert updated.max_spacing_in == 16.0
 
 
 # --- dispatcher / dedup ------------------------------------------------------

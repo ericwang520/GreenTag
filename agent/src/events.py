@@ -12,6 +12,7 @@ prompt logic is unit-testable without a running room. `agent.py` wires the
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
@@ -32,6 +33,40 @@ SPACING_TOLERANCE_IN = 0.5
 # Cap the retrieved clause text fed into the announcement prompt, to keep TTS
 # latency sane. The top chunk is the most relevant; the LLM judges from it.
 MAX_CLAUSE_CHARS = 600
+
+NUMBER_WORDS = {
+    0: "zero",
+    1: "one",
+    2: "two",
+    3: "three",
+    4: "four",
+    5: "five",
+    6: "six",
+    7: "seven",
+    8: "eight",
+    9: "nine",
+    10: "ten",
+    11: "eleven",
+    12: "twelve",
+    13: "thirteen",
+    14: "fourteen",
+    15: "fifteen",
+    16: "sixteen",
+    17: "seventeen",
+    18: "eighteen",
+    19: "nineteen",
+    20: "twenty",
+    21: "twenty-one",
+    22: "twenty-two",
+    23: "twenty-three",
+    24: "twenty-four",
+    25: "twenty-five",
+    26: "twenty-six",
+    27: "twenty-seven",
+    28: "twenty-eight",
+    29: "twenty-nine",
+    30: "thirty",
+}
 
 # Wake words that summon the agent into a conversation. Until it hears one, the
 # agent stays quiet on user speech (so site chatter / its own echo never makes
@@ -91,7 +126,28 @@ def requirement_from_chunks(chunks: list[dict] | None) -> CodeRequirement | None
         " ".join(p for p in (code, section) if p) or "the applicable building code"
     )
     summary = (top.get("text") or "").strip()[:MAX_CLAUSE_CHARS]
-    return CodeRequirement(citation=citation, summary=summary, source=code or None)
+    max_spacing = _default_max_spacing(top)
+    return CodeRequirement(
+        citation=citation,
+        summary=summary,
+        max_spacing_in=max_spacing,
+        source=code or None,
+    )
+
+
+def _default_max_spacing(chunk: dict) -> float | None:
+    """Best-effort numeric max from Moss metadata for deterministic speech."""
+    value = chunk.get("default_max_spacing_in")
+    if value is None:
+        value = (chunk.get("metadata") or {}).get("default_max_spacing_in")
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
 
 
 @dataclass
@@ -185,6 +241,70 @@ def evaluate_compliance(obs: FieldObservation, code: CodeRequirement | None) -> 
         if obs.spacing_in <= code.max_spacing_in + SPACING_TOLERANCE_IN
         else "fail"
     )
+
+
+def build_spoken_announcement(
+    obs: FieldObservation, code: CodeRequirement | None = None
+) -> str:
+    """Build the exact sentence sent to TTS for proactive measurements.
+
+    This path intentionally avoids an LLM. The iPhone has already sent a raw
+    measurement, and Moss has already returned the applicable clause, so the
+    safest voice behavior is a short deterministic line with no hidden reasoning
+    stream that can leak into audio.
+    """
+    measurement = (
+        f"{format_inches(obs.spacing_in)} center to center"
+        if obs.spacing_in is not None
+        else "that spacing"
+    )
+
+    if obs.low_confidence:
+        return f"I have an approximate read at {measurement}. Re-scan before relying on it."
+
+    if code is None:
+        return f"I have the measurement at {measurement}. I'm checking it against local code now."
+
+    verdict = evaluate_compliance(obs, code)
+    citation = format_citation(code.citation)
+    if verdict == "pass":
+        return f"Pass. Measured {measurement}; {citation} allows up to {format_inches(code.max_spacing_in)}."
+    if verdict == "fail":
+        return f"Fail. Measured {measurement}; {citation} allows up to {format_inches(code.max_spacing_in)}."
+    return f"Measured {measurement}. I found {citation}, but I need the wall load case before calling pass or fail."
+
+
+def format_inches(value: float | None) -> str:
+    """Speak common inch measurements without decimal-point phrasing."""
+    if value is None:
+        return "that many inches"
+    quarters = round(value * 4)
+    whole = quarters // 4
+    frac = quarters % 4
+    whole_words = _number_words(whole)
+    if frac == 0:
+        return f"{whole_words} inches"
+    fraction_words = {
+        1: "a quarter",
+        2: "a half",
+        3: "three quarters",
+    }[frac]
+    if whole == 0:
+        return f"{fraction_words} inch"
+    return f"{whole_words} and {fraction_words} inches"
+
+
+def format_citation(citation: str) -> str:
+    """Make code citations less awkward for TTS."""
+    cleaned = citation.strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = cleaned.replace("R", "section R", 1) if cleaned.startswith("R") else cleaned
+    cleaned = cleaned.replace("(", " ").replace(")", "")
+    return cleaned
+
+
+def _number_words(value: int) -> str:
+    return NUMBER_WORDS.get(value, str(value))
 
 
 def build_announcement(
