@@ -176,6 +176,7 @@ class FieldObservation:
     spacing_in: float | None
     confidence: float | None
     measurements: list[MeasurementReading]
+    inspection_summary: dict | None
     question_for_agent: str | None
     location: dict
     raw: dict = field(default_factory=dict)
@@ -233,6 +234,10 @@ def parse_field_observation(payload: object) -> FieldObservation:
             )
         ]
 
+    inspection_summary = payload.get("inspection_summary")
+    if inspection_summary is not None and not isinstance(inspection_summary, dict):
+        raise ObservationError("inspection_summary must be an object")
+
     location = payload.get("location") or {}
     if not isinstance(location, dict):
         raise ObservationError("location must be an object")
@@ -247,6 +252,7 @@ def parse_field_observation(payload: object) -> FieldObservation:
         spacing_in=float(spacing_in) if spacing_in is not None else None,
         confidence=float(confidence) if confidence is not None else None,
         measurements=measurements,
+        inspection_summary=inspection_summary,
         question_for_agent=question,
         location=location,
         raw=payload,
@@ -350,6 +356,7 @@ def build_multi_measurement_announcement(
                 spacing_in=obs.spacing_in,
                 confidence=obs.confidence,
                 measurements=[],
+                inspection_summary=obs.inspection_summary,
                 question_for_agent=obs.question_for_agent,
                 location=obs.location,
                 raw=obs.raw,
@@ -458,6 +465,9 @@ def build_announcement(
         facts.append(f"Measured spacing: {obs.spacing_in} inches, center to center.")
     if obs.confidence is not None:
         facts.append(f"Measurement confidence: {obs.confidence:.0%}.")
+    summary = format_inspection_summary(obs.inspection_summary)
+    if summary:
+        facts.append(summary)
     if where:
         facts.append(f"Location: {where}.")
     user_input = " ".join(facts)
@@ -515,6 +525,42 @@ def build_announcement(
         "about thirty words and end on the clear takeaway for the contractor."
     )
     return user_input, instructions
+
+
+def format_inspection_summary(summary: dict | None) -> str:
+    if not summary:
+        return ""
+    checks = summary.get("checks")
+    if not isinstance(checks, list) or not checks:
+        return ""
+
+    described_checks = []
+    for check in checks[-3:]:
+        if not isinstance(check, dict):
+            continue
+        spans = check.get("spans")
+        if not isinstance(spans, list):
+            continue
+        described_spans = []
+        for span in spans:
+            if not isinstance(span, dict):
+                continue
+            label = span.get("label")
+            spacing = span.get("spacing_in")
+            verdict = span.get("verdict")
+            if not isinstance(spacing, (int, float)):
+                continue
+            described_spans.append(
+                f"{format_label(label if isinstance(label, str) else None)} "
+                f"{spacing:.2f} inches {verdict if isinstance(verdict, str) else 'measured'}"
+            )
+        if described_spans:
+            described_checks.append("; ".join(described_spans))
+
+    if not described_checks:
+        return ""
+
+    return "Current inspection history: " + " | ".join(described_checks) + "."
 
 
 # Callback the HTTP layer invokes to make the agent speak. Wired to the live

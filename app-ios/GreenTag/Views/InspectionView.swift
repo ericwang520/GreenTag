@@ -31,6 +31,7 @@ struct InspectionView: View {
     @State private var showDebug = false
     @State private var demoMode = false
     @State private var verdict: Verdict?
+    @State private var inspectionChecks: [ObservationInspectionCheck] = []
 
     private var hasConfirmedMeasurement: Bool {
         confidence >= minimumConfidence && spacingIn > 0
@@ -343,27 +344,40 @@ struct InspectionView: View {
 
     private func runCheck() {
         guard hasConfirmedMeasurement, verdict == nil else { return }
-        let observation = makeObservation()
+        let observationID = appModel.nextObservationID()
         let result = FramingCodePreview.verdict(
             spacingIn: spacingIn,
             confidence: confidence,
             segments: measurementSegments
         )
+        let currentCheck = inspectionCheck(observationID: observationID, verdict: result)
+        let observation = makeObservation(
+            observationID: observationID,
+            currentCheck: currentCheck
+        )
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
             verdict = result
         }
+        inspectionChecks.append(currentCheck)
         // Hand the raw measurement to the agent over the data channel; it
         // retrieves the clause and announces the ruling by voice.
         Task { await voice.send(observation) }
     }
 
-    private func makeObservation() -> FieldObservation {
+    private func makeObservation(
+        observationID: String,
+        currentCheck: ObservationInspectionCheck
+    ) -> FieldObservation {
         FieldObservation(
-            observationID: appModel.nextObservationID(),
+            observationID: observationID,
             inspectionItem: kind.rawValue,
             location: ObservationLocation(city: appModel.jobSite.city, state: appModel.jobSite.state),
             measurement: ObservationMeasurement(spacingIn: spacingIn, confidence: confidence),
             measurements: observationMeasurements(),
+            inspectionSummary: ObservationInspectionSummary(
+                checks: inspectionChecks + [currentCheck],
+                latestAgentAnnouncement: voice.agentTranscript.isEmpty ? nil : voice.agentTranscript
+            ),
             detections: lumberDetections.map {
                 ObservationDetection(objectClass: $0.className, confidence: $0.confidence)
             }
@@ -467,6 +481,21 @@ struct InspectionView: View {
         case .denied, .restricted: "Enable camera access in Settings to run a live inspection."
         @unknown default: "Restart the app and try again."
         }
+    }
+
+    private func inspectionCheck(observationID: String, verdict: Verdict) -> ObservationInspectionCheck {
+        ObservationInspectionCheck(
+            observationID: observationID,
+            verdict: verdict.status.rawValue,
+            spans: verdict.spans.map {
+                ObservationInspectionSpan(
+                    label: $0.label.lowercased(),
+                    spacingIn: $0.spacingIn,
+                    verdict: $0.passes ? "pass" : "recheck",
+                    confidence: $0.confidence
+                )
+            }
+        )
     }
 }
 
