@@ -6,8 +6,10 @@ chunks are grounded, not invented.
 """
 from __future__ import annotations
 
+import json
 import re
 
+from ..ai_parse import parse_table_with_ai
 from .extract import find_studs_table
 from .sources import Source
 
@@ -45,6 +47,56 @@ def _norm_size(cell: str) -> str:
     return re.sub(r"\s*[×xX]\s*", "x", re.sub(r"[a-zA-Z].*$", "", cell).strip())
 
 
+# Structured column keys for a bearing-wall row (after the height column).
+SUPPORT_KEYS = [
+    "roof_ceiling_only",
+    "one_floor_roof_ceiling",
+    "two_floors_roof_ceiling",
+    "one_floor_only",
+]
+
+
+def _int(cell: str):
+    n = _num(cell)
+    return int(n) if n is not None and n.isdigit() else None
+
+
+def _iter_data_rows(markdown: str):
+    """Yield (normalized_size, [value cells]) for each R602.3(5) data row."""
+    for line in markdown.splitlines():
+        if not line.lstrip().startswith("|"):
+            continue
+        cells = _cells(line)
+        if not cells or not _SIZE_RE.match(cells[0]):
+            continue
+        yield _norm_size(cells[0]), cells[1:]
+
+
+def parse_studs_table(markdown: str) -> list[dict]:
+    """Parse R602.3(5) into structured rows (one bearing + one non-bearing per size).
+
+    Columns (after stud size): height, roof+ceiling only, one floor+roof+ceiling,
+    two floors+roof+ceiling, one floor only, non-bearing height, non-bearing spacing.
+    """
+    rows: list[dict] = []
+    for size, values in _iter_data_rows(markdown):
+        if len(values) < 7:
+            continue
+        rows.append({
+            "stud_size": size,
+            "bearing": True,
+            "max_height_ft": _int(values[0]),
+            "supports": {SUPPORT_KEYS[i]: _int(values[1 + i]) for i in range(4)},
+        })
+        rows.append({
+            "stud_size": size,
+            "bearing": False,
+            "max_height_ft": _int(values[5]),
+            "max_spacing_in": _int(values[6]),
+        })
+    return rows
+
+
 def flatten_studs_table(markdown: str) -> list[str]:
     """Flatten R602.3(5) data rows into readable per-size sentences.
 
@@ -52,15 +104,7 @@ def flatten_studs_table(markdown: str) -> list[str]:
     shape, rather than dropping the rule.
     """
     rows: list[str] = []
-    for line in markdown.splitlines():
-        if not line.lstrip().startswith("|"):
-            continue
-        cells = _cells(line)
-        if not cells or not _SIZE_RE.match(cells[0]):
-            continue
-        size = _norm_size(cells[0])
-        values = cells[1:]
-
+    for size, values in _iter_data_rows(markdown):
         if len(values) >= 7:
             bearing = [
                 lbl.format(v=_num(values[i]))
@@ -121,11 +165,63 @@ def _adoption_text(source: Source) -> str:
     )
 
 
-def build_chunks(source: Source, segments) -> list[dict]:
+def _default_max_spacing(rows: list[dict]) -> int | None:
+    """The headline number: 2x4 bearing wall supporting one floor + roof/ceiling.
+
+    This is the common framing case (the 16" most contractors mean). Returns the
+    smallest plausible value found if that exact cell is missing.
+    """
+    for r in rows:
+        if r.get("stud_size") == "2x4" and r.get("bearing"):
+            v = (r.get("supports") or {}).get("one_floor_roof_ceiling")
+            if v:
+                return v
+    vals = [
+        v for r in rows for v in (
+            list((r.get("supports") or {}).values()) + [r.get("max_spacing_in")]
+        ) if isinstance(v, int)
+    ]
+    return min(vals) if vals else None
+
+
+def build_spacing_entry(source: Source, segments) -> dict | None:
+    """Structured R602.3(5) for a source, or None if it has no studs table.
+
+    AI-parses the table (robust to layout variation); falls back to positional
+    code parsing if the AI call or its validation fails, so ingest never breaks.
+    Cities without their own table fall back to the IRC base at query time.
+    """
+    table_md = find_studs_table(segments)
+    if not table_md:
+        return None
+
+    method = "ai"
+    try:
+        rows = parse_table_with_ai(table_md)
+    except Exception as exc:  # noqa: BLE001 — degrade gracefully, log which path
+        print(f"  [spacing] AI parse failed for {source.city} ({exc}); using code parser")
+        rows = parse_studs_table(table_md)
+        method = "code"
+    if not rows:
+        return None
+
+    return {
+        "city": source.city,
+        "state": source.state,
+        "code": f"{source.code_base} R602.3(5)",
+        "section": "R602.3(5)",
+        "parsed_by": method,
+        "default_max_spacing_in": _default_max_spacing(rows),
+        "rows": rows,
+    }
+
+
+def build_chunks(source: Source, segments, spacing_entry: dict | None = None) -> list[dict]:
     """Produce all chunks for one source.
 
     - If the source restates Table R602.3(5): one flattened-table chunk + one
-      plain-language rule summary.
+      plain-language rule summary. When `spacing_entry` is given, its structured
+      fields ride on the table chunk into Moss metadata (per-city spacing fields).
     - If it doesn't (e.g. SF amendments don't touch studs): one "adopts base"
       chunk that states the applicable 16"/24" rule with its provenance.
     """
@@ -138,9 +234,14 @@ def build_chunks(source: Source, segments) -> list[dict]:
             table_text = (
                 "Table R602.3(5) — Size, Height and Spacing of Wood Studs. " + " ".join(rows)
             )
-            chunks.append(
-                _chunk(source, f"{source.code_base} R602.3(5)", "R602.3(5)", table_text)
+            table_chunk = _chunk(
+                source, f"{source.code_base} R602.3(5)", "R602.3(5)", table_text
             )
+            if spacing_entry:
+                # These become Moss metadata fields on this city's document.
+                table_chunk["default_max_spacing_in"] = spacing_entry["default_max_spacing_in"]
+                table_chunk["spacing_json"] = json.dumps(spacing_entry["rows"], separators=(",", ":"))
+            chunks.append(table_chunk)
         chunks.append(
             _chunk(source, f"{source.code_base} R602.3", "R602.3", _summary_text(source))
         )

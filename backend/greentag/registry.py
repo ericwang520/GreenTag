@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from .config import CHUNKS_PATH
+from .config import CHUNKS_PATH, SPACING_PATH
 from .moss_codes import BASE_CITY
 
 
@@ -29,6 +29,28 @@ def upsert_city_chunks(city: str, new_chunks: list[dict]) -> list[dict]:
     merged = kept + new_chunks
     save_chunks(merged)
     return merged
+
+
+def load_spacing() -> dict:
+    if not SPACING_PATH.exists():
+        return {}
+    return json.loads(SPACING_PATH.read_text())
+
+
+def save_spacing(table: dict) -> None:
+    SPACING_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SPACING_PATH.write_text(json.dumps(table, indent=2, ensure_ascii=False))
+
+
+def upsert_spacing_entry(city: str, entry: dict | None) -> dict:
+    """Set (or, when entry is None, remove) a city's structured table."""
+    table = load_spacing()
+    if entry is None:
+        table.pop(city, None)
+    else:
+        table[city] = entry
+    save_spacing(table)
+    return table
 
 
 def list_cities() -> list[dict]:

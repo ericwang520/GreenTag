@@ -19,10 +19,15 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BACKEND_DIR / "data"
 CODES_RAW_DIR = DATA_DIR / "codes_raw"     # source PDFs (input to Unsiloed)
 RAW_CACHE_DIR = DATA_DIR / "raw"           # cached Unsiloed responses
-CHUNKS_PATH = DATA_DIR / "codes_chunks.json"  # pipeline output
+CHUNKS_PATH = DATA_DIR / "codes_chunks.json"      # prose chunks (voice RAG)
+SPACING_PATH = DATA_DIR / "spacing_table.json"    # structured R602.3(5) (AR overlay)
 
 # --- Moss ------------------------------------------------------------------
 MOSS_INDEX = "building_codes"  # ONE index; cities separated by `city` metadata
+
+# --- MiniMax (offline AI table parsing only) -------------------------------
+MINIMAX_BASE_URL = "https://api.minimaxi.chat/v1/text/chatcompletion_v2"
+MINIMAX_MODEL = "MiniMax-M3"
 
 
 def require_env(name: str) -> str:
@@ -44,3 +49,8 @@ def moss_credentials() -> tuple[str, str]:
 def unsiloed_api_key() -> str:
     """Unsiloed API key — needed by the offline parse step only."""
     return require_env("UNSILOED_API_KEY")
+
+
+def minimax_api_key() -> str:
+    """MiniMax API key — needed by the offline AI table-parsing step only."""
+    return require_env("MINIMAX_API_KEY")

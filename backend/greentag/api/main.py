@@ -23,6 +23,7 @@ from livekit import api as lkapi
 from ..ingest.pipeline import ingest_uploaded
 from ..moss_codes import lookup_code
 from ..registry import list_cities
+from ..spacing import DEFAULT_SUPPORTS, evaluate, get_max_spacing
 
 # The voice worker registers under this name (see agent/src/agent.py
 # `@server.rtc_session(agent_name=...)`). Because the agent uses a name, it is
@@ -129,6 +130,34 @@ async def ingest_upload(
     except Exception as exc:  # surface parse/index errors to the UI
         raise HTTPException(502, f"Ingest failed: {exc}") from exc
     return {"ok": True, **result}
+
+
+@app.get("/codes/max-spacing")
+async def codes_max_spacing(
+    city: str = Query(..., description="jurisdiction, e.g. 'San Francisco'"),
+    stud_size: str = Query("2x4"),
+    bearing: bool = Query(True),
+    supports: str = Query(DEFAULT_SUPPORTS, description="bearing-wall load case"),
+) -> dict:
+    """Structured max on-center spacing (a hard number) for the AR overlay.
+
+    Deterministic — no LLM at request time. Resolves city -> IRC base fallback.
+    """
+    return get_max_spacing(city, stud_size=stud_size, bearing=bearing, supports=supports)
+
+
+@app.get("/codes/verdict")
+async def codes_verdict(
+    city: str = Query(...),
+    measured_in: float = Query(..., description="measured center-to-center spacing (inches)"),
+    stud_size: str = Query("2x4"),
+    bearing: bool = Query(True),
+    supports: str = Query(DEFAULT_SUPPORTS),
+) -> dict:
+    """Pass/fail a measured spacing against the code maximum (green/red)."""
+    return evaluate(
+        measured_in, city=city, stud_size=stud_size, bearing=bearing, supports=supports
+    )
 
 
 # Serve the static map UI at / (mounted last so it doesn't shadow the API).
