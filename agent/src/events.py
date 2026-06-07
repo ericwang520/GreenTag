@@ -33,6 +33,28 @@ SPACING_TOLERANCE_IN = 0.5
 # latency sane. The top chunk is the most relevant; the LLM judges from it.
 MAX_CLAUSE_CHARS = 600
 
+# Wake words that summon the agent into a conversation. Until it hears one, the
+# agent stays quiet on user speech (so site chatter / its own echo never makes
+# it answer) — proactive measurement announcements are unaffected. Matching is
+# substring + lowercased to tolerate STT spacing ("green tag") and punctuation.
+WAKE_WORDS = (
+    "hey greentag",
+    "hey green tag",
+    "ok greentag",
+    "okay greentag",
+    "greentag",
+    "green tag",
+    "hey inspector",
+)
+
+
+def contains_wake_word(text: str | None) -> bool:
+    """True if `text` contains any wake word (case-insensitive substring)."""
+    if not text:
+        return False
+    lowered = text.lower()
+    return any(word in lowered for word in WAKE_WORDS)
+
 
 @dataclass
 class CodeRequirement:
@@ -227,11 +249,19 @@ def build_announcement(
             )
 
     instructions = (
-        "A new field measurement just arrived from the inspector's camera. "
-        "Proactively announce it out loud in one or two short, natural sentences. "
-        "State the inspection item and the measured value. "
+        "You are GreenTag, a seasoned framing inspector talking to the contractor "
+        "on site through an earpiece — warm, direct, and human, never like you're "
+        "reading off a form. A new measurement just came in from their camera. "
+        "Announce it in one or two short spoken sentences, ALWAYS in this order: "
+        "(1) the bottom-line result in plain words, (2) the measurement said "
+        "naturally, (3) the reason tied to the code. "
         f"{hedge}{verdict_directive} "
-        "Keep it brief and conversational."
+        "Make it sound like real speech: use contractions, say numbers as words "
+        "(\"sixteen and a quarter inches\", not \"15.25 in\"), and read any code "
+        "reference the way a person would say it out loud (\"the residential code, "
+        "section six oh two\") instead of reciting punctuation or parentheses. "
+        "No lists, labels, or filler like \"inspection item\" — just talk. Keep it "
+        "under about thirty words and end on the clear takeaway for the contractor."
     )
     return user_input, instructions
 

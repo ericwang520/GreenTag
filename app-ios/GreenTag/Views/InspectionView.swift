@@ -48,7 +48,10 @@ struct InspectionView: View {
         switch voice.phase {
         case .idle: ""
         case .connecting: "Connecting to inspector…"
-        case .connected: voice.isMicEnabled ? "Mic on · inspector listening" : "Connected · mic off"
+        case .connected:
+            if voice.muted { "Muted — tap the mic to talk" }
+            else if voice.agentState == .speaking { "Inspector speaking…" }
+            else { "Listening — say “Hey GreenTag” to ask" }
         case .failed: "Voice offline — showing on-device preview"
         }
     }
@@ -68,8 +71,9 @@ struct InspectionView: View {
                 AgentVoiceIndicator(
                     state: voice.agentState,
                     transcript: voice.agentTranscript,
-                    micEnabled: voice.isMicEnabled,
-                    onToggleMic: { Task { await voice.toggleMicrophone() } }
+                    muted: voice.muted,
+                    micActive: voice.isMicEnabled,
+                    onToggleMute: { voice.toggleMute() }
                 )
                 if showDebug, let debugFrame {
                     RoboflowDebugFramePreview(debugFrame: debugFrame)
@@ -432,22 +436,25 @@ struct InspectionView: View {
 
 // MARK: - Agent voice indicator (bound to the live LiveKit session)
 
-/// Shows the conversational agent's live state, its latest spoken line, and a
-/// mic toggle so the inspector can talk back.
+/// Hands-free agent indicator: shows the agent's live state, its latest spoken
+/// line, and a mute toggle. The mic is managed automatically (open to hear the
+/// wake word, closed while the agent speaks) — the button is just a manual mute.
 struct AgentVoiceIndicator: View {
     let state: AgentVoiceState
     let transcript: String
-    let micEnabled: Bool
-    let onToggleMic: () -> Void
+    let muted: Bool
+    let micActive: Bool
+    let onToggleMute: () -> Void
 
     @State private var animate = false
 
     private var subtitle: String {
+        if muted { return "Muted — tap the mic to talk back" }
         if !transcript.isEmpty { return transcript }
         switch state {
-        case .offline: return "Tap the mic to reconnect"
+        case .offline: return "Reconnecting…"
         case .connecting: return "Bringing the inspector on the line…"
-        case .listening: return "Ask about the code, or lock a measurement"
+        case .listening: return "Say “Hey GreenTag” to ask about the code"
         case .thinking: return "Looking up the local requirement…"
         case .speaking: return "…"
         }
@@ -466,12 +473,20 @@ struct AgentVoiceIndicator: View {
                     .lineLimit(2)
             }
             Spacer()
-            Button(action: onToggleMic) {
-                Image(systemName: micEnabled ? "mic.fill" : "mic.slash.fill")
+            Button(action: onToggleMute) {
+                Image(systemName: muted ? "mic.slash.fill" : "mic.fill")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(micEnabled ? .black : .white)
+                    .foregroundStyle(muted ? .white : .black)
                     .frame(width: 36, height: 36)
-                    .background(micEnabled ? Theme.accent : Color.white.opacity(0.16), in: Circle())
+                    .background(muted ? Color.white.opacity(0.16) : Theme.accent, in: Circle())
+                    .overlay(
+                        // Pulse ring when the mic is actually open and capturing.
+                        Circle()
+                            .stroke(Theme.accent.opacity(micActive && !muted ? 0.9 : 0), lineWidth: 2)
+                            .scaleEffect(micActive && !muted ? 1.35 : 1)
+                            .opacity(micActive && !muted ? 0 : 1)
+                            .animation(micActive && !muted ? .easeOut(duration: 1).repeatForever(autoreverses: false) : .default, value: micActive)
+                    )
             }
             .buttonStyle(.plain)
         }
