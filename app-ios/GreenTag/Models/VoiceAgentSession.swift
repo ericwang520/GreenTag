@@ -1,5 +1,6 @@
 import Foundation
 import LiveKit
+import AVFoundation
 import SwiftUI
 
 /// The conversational agent's live state, surfaced in the inspection HUD.
@@ -90,6 +91,7 @@ final class VoiceAgentSession: ObservableObject {
         phase = .connecting
         agentState = .connecting
         do {
+            configureAudioForVoice()
             let details = try await fetchConnectionDetails(roomName: roomName)
             try await room.connect(url: details.serverUrl, token: details.participantToken)
             phase = .connected
@@ -106,6 +108,7 @@ final class VoiceAgentSession: ObservableObject {
     func disconnect() async {
         await room.disconnect()
         isMicEnabled = false
+        desiredMic = false
         agentState = .offline
         agentTranscript = ""
         agentIdentity = nil
@@ -146,6 +149,32 @@ final class VoiceAgentSession: ObservableObject {
             }
         }
         micDraining = false
+    }
+
+    /// Keep the physical iPhone in a stable voice-chat route. Without an
+    /// explicit category, real devices can flip between receiver/speaker
+    /// behavior as LiveKit enables and disables capture for half-duplex.
+    private func configureAudioForVoice() {
+        #if os(iOS)
+        let options: AVAudioSession.CategoryOptions = [
+            .defaultToSpeaker,
+            .allowBluetoothHFP,
+            .allowBluetoothA2DP,
+            .mixWithOthers,
+        ]
+
+        AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
+        AudioManager.shared.isSpeakerOutputPreferred = true
+        AudioManager.shared.customConfigureAudioSessionFunc = { _, _ in
+            let session = AVAudioSession.sharedInstance()
+            try? session.setCategory(.playAndRecord, mode: .voiceChat, options: options)
+            try? session.setActive(true)
+        }
+
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playAndRecord, mode: .voiceChat, options: options)
+        try? session.setActive(true)
+        #endif
     }
 
     // MARK: - Send an observation over the data channel
