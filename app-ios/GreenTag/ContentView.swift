@@ -554,6 +554,10 @@ private struct CameraHUD: View {
     let publishStatus: String
     let spacingPreview: StudSpacingPreview
 
+    private var minimumConfidencePercent: Int {
+        Int((RoboflowLumberDetectorConfiguration.minimumConfidence * 100).rounded())
+    }
+
     private var statusColor: Color {
         guard hasConfirmedMeasurement else {
             return .orange
@@ -597,7 +601,7 @@ private struct CameraHUD: View {
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(statusColor)
 
-                    Text(hasConfirmedMeasurement ? spacingPreview.detailText : "Need two lumber detections above 80%")
+                    Text(hasConfirmedMeasurement ? spacingPreview.detailText : "Need two lumber detections above \(minimumConfidencePercent)%")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.78))
                 }
@@ -613,7 +617,7 @@ private struct CameraHUD: View {
                         .monospacedDigit()
                         .foregroundStyle(.white)
 
-                    Text(hasConfirmedMeasurement ? "\(Int((confidence * 100).rounded()))% confidence" : "waiting for 80%+")
+                    Text(hasConfirmedMeasurement ? "\(Int((confidence * 100).rounded()))% confidence" : "waiting for \(minimumConfidencePercent)%+")
                         .font(.system(size: 12, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.78))

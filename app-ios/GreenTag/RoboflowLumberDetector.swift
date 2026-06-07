@@ -17,7 +17,7 @@ struct LumberDetection: Identifiable, Equatable {
 enum RoboflowLumberDetectorConfiguration {
     static let modelID = "lumber-v2-jrf2b"
     static let modelVersion = 4
-    static let minimumConfidence = 0.80
+    static let minimumConfidence = 0.50
 }
 
 @MainActor
@@ -59,8 +59,12 @@ final class RoboflowLumberDetector {
             throw DetectorError.inferenceFailed(errorDescription)
         }
 
-        return (predictions ?? []).compactMap { prediction in
+        let rawPredictions = predictions ?? []
+        print("Roboflow detections raw_count=\(rawPredictions.count)")
+
+        let lumberDetections: [LumberDetection] = rawPredictions.compactMap { prediction in
             guard let object = prediction as? RFObjectDetectionPrediction else {
+                print("Roboflow detection unsupported_prediction=\(type(of: prediction))")
                 return nil
             }
 
@@ -68,12 +72,16 @@ final class RoboflowLumberDetector {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .lowercased()
             guard normalizedClass == "lumber" else {
+                printDetection(object, accepted: false, reason: "not_lumber")
                 return nil
             }
 
             guard Double(object.confidence) >= RoboflowLumberDetectorConfiguration.minimumConfidence else {
+                printDetection(object, accepted: false, reason: "below_threshold")
                 return nil
             }
+
+            printDetection(object, accepted: true, reason: "accepted")
 
             return LumberDetection(
                 frame: object.box,
@@ -81,6 +89,25 @@ final class RoboflowLumberDetector {
                 className: object.className
             )
         }
+
+        print("Roboflow detections accepted_lumber_count=\(lumberDetections.count)")
+        return lumberDetections
+    }
+
+    private func printDetection(_ object: RFObjectDetectionPrediction, accepted: Bool, reason: String) {
+        print(
+            String(
+                format: "Roboflow detection class=%@ confidence=%.3f accepted=%@ reason=%@ box=(x: %.1f, y: %.1f, w: %.1f, h: %.1f)",
+                object.className,
+                Double(object.confidence),
+                accepted ? "true" : "false",
+                reason,
+                object.box.origin.x,
+                object.box.origin.y,
+                object.box.size.width,
+                object.box.size.height
+            )
+        )
     }
 
     private func loadModel() async -> (RFModel?, String?) {
