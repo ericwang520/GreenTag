@@ -826,8 +826,9 @@ private struct ARGuideOverlay: View {
     }
 
     private func selectedPair(in size: CGSize) -> (left: CGPoint, right: CGPoint)? {
+        let bounds = CGRect(origin: .zero, size: size)
         let sortedDetections = detections
-            .filter { $0.confidence >= minimumConfidence }
+            .filter { $0.confidence >= minimumConfidence && bounds.contains($0.center) }
             .sorted { lhs, rhs in
                 lhs.frame.midX < rhs.frame.midX
             }

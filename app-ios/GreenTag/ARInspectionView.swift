@@ -217,9 +217,27 @@ struct ARInspectionView: UIViewRepresentable {
                         minimumConfidence: minimumConfidence
                     ) ?? RoboflowDetectionResult(acceptedLumber: [], debugDetections: [])
                     onDebugFrameUpdated(RoboflowDebugFrame(image: image, detections: result.debugDetections))
-                    screenDetections = result.acceptedLumber.map { detection in
-                        LumberDetection(
-                            frame: self.scale(detection.frame, from: image.size, to: viewSize),
+                    let viewBounds = CGRect(origin: .zero, size: viewSize)
+                    screenDetections = result.acceptedLumber.compactMap { detection in
+                        let scaledFrame = self.scale(detection.frame, from: image.size, to: viewSize)
+                        let visibleFrame = scaledFrame.intersection(viewBounds)
+                        guard visibleFrame.width >= 8, visibleFrame.height >= 8 else {
+                            print(
+                                String(
+                                    format: "Roboflow detection hidden offscreen class=%@ confidence=%.3f scaled_box=(x: %.1f, y: %.1f, w: %.1f, h: %.1f)",
+                                    detection.className,
+                                    detection.confidence,
+                                    scaledFrame.origin.x,
+                                    scaledFrame.origin.y,
+                                    scaledFrame.size.width,
+                                    scaledFrame.size.height
+                                )
+                            )
+                            return nil
+                        }
+
+                        return LumberDetection(
+                            frame: visibleFrame,
                             confidence: detection.confidence,
                             className: detection.className
                         )
