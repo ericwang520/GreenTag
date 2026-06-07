@@ -19,6 +19,7 @@ struct InspectionView: View {
     @State private var spacingIn = 0.0
     @State private var confidence = 0.0
     @State private var lumberDetections: [LumberDetection] = []
+    @State private var measurementSegments: [LumberMeasurementSegment] = []
     @State private var roboflowStatus = AppSecrets.roboflowAPIKey.isEmpty ? "Missing Roboflow key" : "Starting vision"
     @State private var minimumConfidence = RoboflowLumberDetectorConfiguration.defaultMinimumConfidence
     @State private var debugFrame: RoboflowDebugFrame?
@@ -104,6 +105,10 @@ struct InspectionView: View {
                     spacingIn = spacing
                     confidence = conf
                 },
+                onMeasurementSegmentsUpdated: { segments in
+                    guard verdict == nil else { return }
+                    measurementSegments = segments
+                },
                 onDetectionsUpdated: { lumberDetections = $0 },
                 onDebugFrameUpdated: { debugFrame = $0 },
                 onDetectorStatusUpdated: { roboflowStatus = $0 }
@@ -113,6 +118,7 @@ struct InspectionView: View {
             ARGuideOverlay(
                 spacingIn: spacingIn,
                 detections: lumberDetections,
+                segments: measurementSegments,
                 minimumConfidence: minimumConfidence,
                 hasConfirmedMeasurement: hasConfirmedMeasurement
             )
@@ -505,13 +511,13 @@ struct AgentVoiceIndicator: View {
 private struct ARGuideOverlay: View {
     let spacingIn: Double
     let detections: [LumberDetection]
+    let segments: [LumberMeasurementSegment]
     let minimumConfidence: Double
     let hasConfirmedMeasurement: Bool
 
     var body: some View {
         GeometryReader { geometry in
-            let pair = selectedPair(in: geometry.size)
-            let pairs = adjacentPairs(in: geometry.size)
+            let fallbackPair = selectedPair(in: geometry.size)
 
             ZStack(alignment: .topLeading) {
                 ForEach(detections) { detection in
@@ -521,26 +527,40 @@ private struct ARGuideOverlay: View {
                     .position(detection.center)
                 }
 
-                if let pair, hasConfirmedMeasurement {
-                    ForEach(Array(pairs.enumerated()), id: \.offset) { _, visiblePair in
+                if hasConfirmedMeasurement {
+                    ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                         Path { path in
-                            path.move(to: visiblePair.left)
-                            path.addLine(to: visiblePair.right)
+                            path.move(to: segment.left)
+                            path.addLine(to: segment.right)
                         }
                         .stroke(.green, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 6]))
 
-                        guidePoint(at: visiblePair.left)
-                        guidePoint(at: visiblePair.right)
+                        guidePoint(at: segment.left)
+                        guidePoint(at: segment.right)
+
+                        Text(String(format: "%.2f in", segment.spacingIn))
+                            .font(.system(size: 13, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.green, in: Capsule())
+                            .position(
+                                x: (segment.left.x + segment.right.x) / 2,
+                                y: max(18, min(segment.left.y, segment.right.y) - 30)
+                            )
                     }
 
-                    Text(String(format: "%.2f in", spacingIn))
-                        .font(.system(size: 13, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.green, in: Capsule())
-                        .position(x: (pair.left.x + pair.right.x) / 2, y: pair.left.y - 30)
+                    if segments.isEmpty, let fallbackPair {
+                        Text(String(format: "%.2f in", spacingIn))
+                            .font(.system(size: 13, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.green, in: Capsule())
+                            .position(x: (fallbackPair.left.x + fallbackPair.right.x) / 2, y: fallbackPair.left.y - 30)
+                    }
                 }
             }
         }

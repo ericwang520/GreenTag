@@ -4,10 +4,18 @@ import RealityKit
 import SwiftUI
 import UIKit
 
+struct LumberMeasurementSegment: Equatable {
+    let left: CGPoint
+    let right: CGPoint
+    let spacingIn: Double
+    let confidence: Double
+}
+
 struct ARInspectionView: UIViewRepresentable {
     let roboflowAPIKey: String
     let minimumConfidence: Double
     let onMeasurementUpdated: (Double, Double) -> Void
+    let onMeasurementSegmentsUpdated: ([LumberMeasurementSegment]) -> Void
     let onDetectionsUpdated: ([LumberDetection]) -> Void
     let onDebugFrameUpdated: (RoboflowDebugFrame) -> Void
     let onDetectorStatusUpdated: (String) -> Void
@@ -39,6 +47,7 @@ struct ARInspectionView: UIViewRepresentable {
             roboflowAPIKey: roboflowAPIKey,
             minimumConfidence: minimumConfidence,
             onMeasurementUpdated: onMeasurementUpdated,
+            onMeasurementSegmentsUpdated: onMeasurementSegmentsUpdated,
             onDetectionsUpdated: onDetectionsUpdated,
             onDebugFrameUpdated: onDebugFrameUpdated,
             onDetectorStatusUpdated: onDetectorStatusUpdated
@@ -63,6 +72,7 @@ struct ARInspectionView: UIViewRepresentable {
         private var roboflowAPIKey: String
         private var minimumConfidence: Double
         private let onMeasurementUpdated: (Double, Double) -> Void
+        private let onMeasurementSegmentsUpdated: ([LumberMeasurementSegment]) -> Void
         private let onDetectionsUpdated: ([LumberDetection]) -> Void
         private let onDebugFrameUpdated: (RoboflowDebugFrame) -> Void
         private let onDetectorStatusUpdated: (String) -> Void
@@ -76,6 +86,7 @@ struct ARInspectionView: UIViewRepresentable {
         private var candidatePairConfirmationCount = 0
         private var confirmedPair: MeasurementPair?
         private var lockedMeasurement: (spacingIn: Double, confidence: Double)?
+        private var lockedSegments: [LumberMeasurementSegment] = []
         private var lastDetectionTime: CFTimeInterval = 0
         private var lastDetectionTransform: simd_float4x4?
         private let requiredPairConfirmations = 1
@@ -88,6 +99,7 @@ struct ARInspectionView: UIViewRepresentable {
             roboflowAPIKey: String,
             minimumConfidence: Double,
             onMeasurementUpdated: @escaping (Double, Double) -> Void,
+            onMeasurementSegmentsUpdated: @escaping ([LumberMeasurementSegment]) -> Void,
             onDetectionsUpdated: @escaping ([LumberDetection]) -> Void,
             onDebugFrameUpdated: @escaping (RoboflowDebugFrame) -> Void,
             onDetectorStatusUpdated: @escaping (String) -> Void
@@ -95,6 +107,7 @@ struct ARInspectionView: UIViewRepresentable {
             self.roboflowAPIKey = roboflowAPIKey
             self.minimumConfidence = minimumConfidence
             self.onMeasurementUpdated = onMeasurementUpdated
+            self.onMeasurementSegmentsUpdated = onMeasurementSegmentsUpdated
             self.onDetectionsUpdated = onDetectionsUpdated
             self.onDebugFrameUpdated = onDebugFrameUpdated
             self.onDetectorStatusUpdated = onDetectorStatusUpdated
@@ -141,27 +154,29 @@ struct ARInspectionView: UIViewRepresentable {
                 detectLumberIfNeeded(in: arView)
             }
 
-            guard let pair = confirmedPair else {
+            guard confirmedPair != nil else {
                 onMeasurementUpdated(0, 0)
+                onMeasurementSegmentsUpdated([])
                 return
             }
 
-            if let lockedMeasurement {
+            if let lockedMeasurement, !lockedSegments.isEmpty {
                 onMeasurementUpdated(lockedMeasurement.spacingIn, lockedMeasurement.confidence)
+                onMeasurementSegmentsUpdated(lockedSegments)
                 return
             }
 
-            guard let left = worldPoint(at: pair.left, in: arView),
-                  let right = worldPoint(at: pair.right, in: arView) else {
+            let segments = measurementSegments(in: arView)
+            guard let primarySegment = selectedPrimarySegment(from: segments) else {
                 onMeasurementUpdated(0, 0)
+                onMeasurementSegmentsUpdated([])
                 return
             }
 
-            let distanceMeters = simd_distance(left, right)
-            let distanceInches = Double(distanceMeters) * 39.3701
-            let clampedDistance = min(max(distanceInches, 0), 96)
-            lockedMeasurement = (clampedDistance, pair.confidence)
-            onMeasurementUpdated(clampedDistance, pair.confidence)
+            lockedSegments = segments
+            lockedMeasurement = (primarySegment.spacingIn, primarySegment.confidence)
+            onMeasurementUpdated(primarySegment.spacingIn, primarySegment.confidence)
+            onMeasurementSegmentsUpdated(segments)
         }
 
         private func worldPoint(at screenPoint: CGPoint, in arView: ARView) -> SIMD3<Float>? {
@@ -186,11 +201,7 @@ struct ARInspectionView: UIViewRepresentable {
         }
 
         private func selectedMeasurementPair(from detections: [LumberDetection]) -> MeasurementPair? {
-            let sortedDetections = detections
-                .filter { $0.confidence >= minimumConfidence }
-                .sorted { lhs, rhs in
-                    lhs.frame.midX < rhs.frame.midX
-                }
+            let sortedDetections = sortedMeasurementDetections(from: detections)
 
             guard sortedDetections.count >= 2 else {
                 return nil
@@ -212,6 +223,43 @@ struct ARInspectionView: UIViewRepresentable {
             )
         }
 
+        private func sortedMeasurementDetections(from detections: [LumberDetection]) -> [LumberDetection] {
+            detections
+                .filter { $0.confidence >= minimumConfidence }
+                .sorted { lhs, rhs in
+                    lhs.frame.midX < rhs.frame.midX
+                }
+        }
+
+        private func measurementSegments(in arView: ARView) -> [LumberMeasurementSegment] {
+            let sortedDetections = sortedMeasurementDetections(from: screenDetections)
+            guard sortedDetections.count >= 2 else { return [] }
+
+            return zip(sortedDetections, sortedDetections.dropFirst()).compactMap { leftDetection, rightDetection in
+                guard let left = worldPoint(at: leftDetection.center, in: arView),
+                      let right = worldPoint(at: rightDetection.center, in: arView) else {
+                    return nil
+                }
+
+                let distanceMeters = simd_distance(left, right)
+                let distanceInches = Double(distanceMeters) * 39.3701
+                let clampedDistance = min(max(distanceInches, 0), 96)
+
+                return LumberMeasurementSegment(
+                    left: leftDetection.center,
+                    right: rightDetection.center,
+                    spacingIn: clampedDistance,
+                    confidence: min(leftDetection.confidence, rightDetection.confidence)
+                )
+            }
+        }
+
+        private func selectedPrimarySegment(from segments: [LumberMeasurementSegment]) -> LumberMeasurementSegment? {
+            segments.min { lhs, rhs in
+                abs(lhs.right.x - lhs.left.x) < abs(rhs.right.x - rhs.left.x)
+            }
+        }
+
         private func detectLumberIfNeeded(in arView: ARView) {
             let apiKey = roboflowAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !apiKey.isEmpty else {
@@ -228,6 +276,7 @@ struct ARInspectionView: UIViewRepresentable {
                cameraMovedEnough(from: lastDetectionTransform, to: transform) {
                 resetPairConfirmation()
                 onMeasurementUpdated(0, 0)
+                onMeasurementSegmentsUpdated([])
             }
 
             isDetecting = true
@@ -254,6 +303,7 @@ struct ARInspectionView: UIViewRepresentable {
                         screenDetections = []
                         resetPairConfirmation()
                         onDetectionsUpdated([])
+                        onMeasurementSegmentsUpdated([])
                         onDetectorStatusUpdated("No frame")
                         isDetecting = false
                         return
@@ -297,6 +347,7 @@ struct ARInspectionView: UIViewRepresentable {
                     screenDetections = []
                     resetPairConfirmation()
                     onDetectionsUpdated([])
+                    onMeasurementSegmentsUpdated([])
                     onDetectorStatusUpdated("Roboflow error")
                 }
 
@@ -393,12 +444,15 @@ struct ARInspectionView: UIViewRepresentable {
                 candidatePairConfirmationCount = 1
                 confirmedPair = nil
                 lockedMeasurement = nil
+                lockedSegments = []
                 onMeasurementUpdated(0, 0)
+                onMeasurementSegmentsUpdated([])
             }
 
             if candidatePairConfirmationCount >= requiredPairConfirmations {
                 if confirmedPair == nil {
                     lockedMeasurement = nil
+                    lockedSegments = []
                 }
                 confirmedPair = pair
             }
@@ -409,6 +463,7 @@ struct ARInspectionView: UIViewRepresentable {
             candidatePairConfirmationCount = 0
             confirmedPair = nil
             lockedMeasurement = nil
+            lockedSegments = []
         }
 
         private func isSimilar(_ lhs: MeasurementPair, to rhs: MeasurementPair) -> Bool {
