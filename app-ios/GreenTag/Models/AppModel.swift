@@ -6,9 +6,12 @@ import Observation
 @MainActor
 @Observable
 final class AppModel {
+    private static let conversationIDKey = "greentag.livekit.conversationID"
+
     var jobSite: JobSite
     var recentSites: [JobSite]
     var records: [InspectionRecord] = []
+    var conversationID: String
 
     /// Backend base URL hosting `/connection-details` (the LiveKit token + agent
     /// dispatch). On a device, point this at the Mac's LAN address.
@@ -24,6 +27,7 @@ final class AppModel {
         ]
         recentSites = sites
         jobSite = sites[0]
+        conversationID = Self.loadOrCreateConversationID()
     }
 
     /// Sequential id used to dedup observations on the agent side.
@@ -41,6 +45,17 @@ final class AppModel {
         if !recentSites.contains(site) {
             recentSites.insert(site, at: 0)
         }
+    }
+
+    private static func loadOrCreateConversationID() -> String {
+        let defaults = UserDefaults.standard
+        if let existing = defaults.string(forKey: conversationIDKey), !existing.isEmpty {
+            return existing
+        }
+
+        let created = "greentag-ios-\(UUID().uuidString.lowercased())"
+        defaults.set(created, forKey: conversationIDKey)
+        return created
     }
 
     // Session summary for the home dashboard.

@@ -466,7 +466,7 @@ struct InspectionView: View {
         if let url = URL(string: appModel.backendBaseURL) {
             voice.backendBaseURL = url
         }
-        await voice.connect()
+        await voice.connect(roomName: appModel.conversationID)
     }
 
     @MainActor

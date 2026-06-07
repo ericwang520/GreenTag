@@ -93,6 +93,7 @@ final class VoiceAgentSession: ObservableObject {
         do {
             configureAudioForVoice()
             let details = try await fetchConnectionDetails(roomName: roomName)
+            print("[GreenTag LiveKit] connecting room=\(details.roomName) participant=\(details.participantName)")
             try await room.connect(url: details.serverUrl, token: details.participantToken)
             phase = .connected
             // Hands-free: open the mic so the agent can hear the wake word. The
