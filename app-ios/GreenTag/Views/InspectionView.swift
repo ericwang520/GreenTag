@@ -529,22 +529,29 @@ private struct ARGuideOverlay: View {
 
                 if hasConfirmedMeasurement {
                     ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                        let preview = StudSpacingPreview(measuredInches: segment.spacingIn)
+                        let color: Color = preview.passesWithTolerance ? Theme.accent : .red
+
                         Path { path in
                             path.move(to: segment.left)
                             path.addLine(to: segment.right)
                         }
-                        .stroke(.green, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 6]))
+                        .stroke(color, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [8, 6]))
 
-                        guidePoint(at: segment.left)
-                        guidePoint(at: segment.right)
+                        guidePoint(at: segment.left, color: color)
+                        guidePoint(at: segment.right, color: color)
 
-                        Text(String(format: "%.2f in", segment.spacingIn))
-                            .font(.system(size: 13, weight: .bold))
-                            .monospacedDigit()
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(.green, in: Capsule())
+                        VStack(spacing: 1) {
+                            Text(String(format: "%.2f in", segment.spacingIn))
+                                .font(.system(size: 13, weight: .bold))
+                                .monospacedDigit()
+                            Text(preview.passesWithTolerance ? "Pass" : "Recheck")
+                                .font(.system(size: 10, weight: .heavy))
+                        }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(color, in: Capsule())
                             .position(
                                 x: (segment.left.x + segment.right.x) / 2,
                                 y: max(18, min(segment.left.y, segment.right.y) - 30)
@@ -552,13 +559,20 @@ private struct ARGuideOverlay: View {
                     }
 
                     if segments.isEmpty, let fallbackPair {
-                        Text(String(format: "%.2f in", spacingIn))
-                            .font(.system(size: 13, weight: .bold))
-                            .monospacedDigit()
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(.green, in: Capsule())
+                        let preview = StudSpacingPreview(measuredInches: spacingIn)
+                        let color: Color = preview.passesWithTolerance ? Theme.accent : .red
+
+                        VStack(spacing: 1) {
+                            Text(String(format: "%.2f in", spacingIn))
+                                .font(.system(size: 13, weight: .bold))
+                                .monospacedDigit()
+                            Text(preview.passesWithTolerance ? "Pass" : "Recheck")
+                                .font(.system(size: 10, weight: .heavy))
+                        }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(color, in: Capsule())
                             .position(x: (fallbackPair.left.x + fallbackPair.right.x) / 2, y: fallbackPair.left.y - 30)
                     }
                 }
@@ -568,10 +582,10 @@ private struct ARGuideOverlay: View {
         .accessibilityHidden(true)
     }
 
-    private func guidePoint(at point: CGPoint) -> some View {
+    private func guidePoint(at point: CGPoint, color: Color) -> some View {
         ZStack {
-            Circle().stroke(.green, lineWidth: 3).frame(width: 34, height: 34)
-            Circle().fill(.green).frame(width: 8, height: 8)
+            Circle().stroke(color, lineWidth: 3).frame(width: 34, height: 34)
+            Circle().fill(color).frame(width: 8, height: 8)
         }
         .position(point)
     }

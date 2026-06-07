@@ -31,22 +31,31 @@ enum SpacingPreviewStatus {
     var title: String {
         switch self {
         case .likelyOnLayout:
-            "Looks near 16 in OC"
+            "Meets spacing code"
         case .checkLayout:
-            "Recheck layout"
+            "Pass within tolerance"
         case .likelyOffLayout:
-            "Likely off layout"
+            "Recheck spacing"
         }
     }
 }
 
 struct StudSpacingPreview {
+    static let defaultMaxSpacingInches = 16.0
+    static let defaultToleranceInches = 12.0
+
     let measuredInches: Double
     let targetInches: Double
+    let toleranceInches: Double
 
-    init(measuredInches: Double, targetInches: Double = 16.0) {
+    init(
+        measuredInches: Double,
+        targetInches: Double = Self.defaultMaxSpacingInches,
+        toleranceInches: Double = Self.defaultToleranceInches
+    ) {
         self.measuredInches = measuredInches
         self.targetInches = targetInches
+        self.toleranceInches = toleranceInches
     }
 
     var deltaInches: Double {
@@ -57,12 +66,20 @@ struct StudSpacingPreview {
         abs(deltaInches)
     }
 
+    var maxAllowedInches: Double {
+        targetInches + toleranceInches
+    }
+
+    var passesWithTolerance: Bool {
+        measuredInches <= maxAllowedInches
+    }
+
     var status: SpacingPreviewStatus {
-        if absoluteDeltaInches <= 0.5 {
+        if measuredInches <= targetInches {
             return .likelyOnLayout
         }
 
-        if absoluteDeltaInches <= 1.5 {
+        if passesWithTolerance {
             return .checkLayout
         }
 
@@ -70,7 +87,14 @@ struct StudSpacingPreview {
     }
 
     var detailText: String {
-        let direction = deltaInches >= 0 ? "wide" : "short"
-        return String(format: "%.2f in %@ of 16 in", absoluteDeltaInches, direction)
+        if measuredInches <= targetInches {
+            return String(format: "%.2f in within %.0f in max", targetInches - measuredInches, targetInches)
+        }
+
+        if passesWithTolerance {
+            return String(format: "%.2f in over max, within 1 ft tolerance", measuredInches - targetInches)
+        }
+
+        return String(format: "%.2f in over 1 ft tolerance", measuredInches - maxAllowedInches)
     }
 }
