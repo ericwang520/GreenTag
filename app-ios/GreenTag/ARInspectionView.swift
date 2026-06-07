@@ -92,7 +92,7 @@ struct ARInspectionView: UIViewRepresentable {
             detector = nil
             screenDetections = []
             onDetectionsUpdated([])
-            onDetectorStatusUpdated(normalizedKey.isEmpty ? "Guide points" : "Roboflow ready")
+            onDetectorStatusUpdated(normalizedKey.isEmpty ? "Missing Roboflow key" : "Roboflow ready")
         }
 
         func startMeasuring() {
@@ -141,11 +141,19 @@ struct ARInspectionView: UIViewRepresentable {
         }
 
         private func worldPoint(at screenPoint: CGPoint, in arView: ARView) -> SIMD3<Float>? {
-            guard let result = arView.raycast(
+            let verticalQuery = arView.raycast(
+                from: screenPoint,
+                allowing: .estimatedPlane,
+                alignment: .vertical
+            ).first
+
+            let fallbackQuery = arView.raycast(
                 from: screenPoint,
                 allowing: .estimatedPlane,
                 alignment: .any
-            ).first else {
+            ).first
+
+            guard let result = verticalQuery ?? fallbackQuery else {
                 return nil
             }
 
@@ -160,19 +168,31 @@ struct ARInspectionView: UIViewRepresentable {
                     lhs.frame.midX < rhs.frame.midX
                 }
 
-            guard let first = sortedDetections.first,
-                  let last = sortedDetections.last,
-                  first.id != last.id else {
+            guard sortedDetections.count >= 2 else {
                 return nil
             }
 
-            return (first.center, last.center, min(first.confidence, last.confidence))
+            let closestPair = zip(sortedDetections, sortedDetections.dropFirst())
+                .min { lhs, rhs in
+                    abs(lhs.1.center.x - lhs.0.center.x) < abs(rhs.1.center.x - rhs.0.center.x)
+                }
+
+            guard let closestPair else {
+                return nil
+            }
+
+            return (
+                closestPair.0.center,
+                closestPair.1.center,
+                min(closestPair.0.confidence, closestPair.1.confidence)
+            )
         }
 
         private func detectLumberIfNeeded(in arView: ARView) {
             let apiKey = roboflowAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !apiKey.isEmpty else {
-                onDetectorStatusUpdated("Guide points")
+                print("Roboflow disabled: ROBOFLOW_API_KEY is empty. Create app-ios/Config/Secrets.xcconfig.")
+                onDetectorStatusUpdated("Missing Roboflow key")
                 return
             }
 
@@ -191,6 +211,7 @@ struct ARInspectionView: UIViewRepresentable {
                         onDetectorStatusUpdated("Loading model")
                         let detector = RoboflowLumberDetector(apiKey: apiKey)
                         try await detector.prepareModel()
+                        onDetectorStatusUpdated(detector.runtimeStatus)
                         self.detector = detector
                     }
 
@@ -207,9 +228,27 @@ struct ARInspectionView: UIViewRepresentable {
                         minimumConfidence: minimumConfidence
                     ) ?? RoboflowDetectionResult(acceptedLumber: [], debugDetections: [])
                     onDebugFrameUpdated(RoboflowDebugFrame(image: image, detections: result.debugDetections))
-                    screenDetections = result.acceptedLumber.map { detection in
-                        LumberDetection(
-                            frame: self.scale(detection.frame, from: image.size, to: viewSize),
+                    let viewBounds = CGRect(origin: .zero, size: viewSize)
+                    screenDetections = result.acceptedLumber.compactMap { detection in
+                        let scaledFrame = self.scale(detection.frame, from: image.size, to: viewSize)
+                        let visibleFrame = scaledFrame.intersection(viewBounds)
+                        guard visibleFrame.width >= 8, visibleFrame.height >= 8 else {
+                            print(
+                                String(
+                                    format: "Roboflow detection hidden offscreen class=%@ confidence=%.3f scaled_box=(x: %.1f, y: %.1f, w: %.1f, h: %.1f)",
+                                    detection.className,
+                                    detection.confidence,
+                                    scaledFrame.origin.x,
+                                    scaledFrame.origin.y,
+                                    scaledFrame.size.width,
+                                    scaledFrame.size.height
+                                )
+                            )
+                            return nil
+                        }
+
+                        return LumberDetection(
+                            frame: visibleFrame,
                             confidence: detection.confidence,
                             className: detection.className
                         )
@@ -241,11 +280,18 @@ struct ARInspectionView: UIViewRepresentable {
                 return .zero
             }
 
+            let scale = max(viewSize.width / imageSize.width, viewSize.height / imageSize.height)
+            let scaledImageSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+            let offset = CGPoint(
+                x: (viewSize.width - scaledImageSize.width) / 2,
+                y: (viewSize.height - scaledImageSize.height) / 2
+            )
+
             return CGRect(
-                x: frame.minX * viewSize.width / imageSize.width,
-                y: frame.minY * viewSize.height / imageSize.height,
-                width: frame.width * viewSize.width / imageSize.width,
-                height: frame.height * viewSize.height / imageSize.height
+                x: frame.minX * scale + offset.x,
+                y: frame.minY * scale + offset.y,
+                width: frame.width * scale,
+                height: frame.height * scale
             )
         }
     }

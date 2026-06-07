@@ -14,7 +14,7 @@ struct InspectionView: View {
     @State private var spacingIn = 0.0
     @State private var confidence = 0.0
     @State private var lumberDetections: [LumberDetection] = []
-    @State private var roboflowStatus = "Starting vision"
+    @State private var roboflowStatus = AppSecrets.roboflowAPIKey.isEmpty ? "Missing Roboflow key" : "Starting vision"
     @State private var minimumConfidence = RoboflowLumberDetectorConfiguration.defaultMinimumConfidence
     @State private var debugFrame: RoboflowDebugFrame?
 
@@ -559,13 +559,17 @@ private struct ARGuideOverlay: View {
     }
 
     private func selectedPair(in size: CGSize) -> (left: CGPoint, right: CGPoint)? {
+        let bounds = CGRect(origin: .zero, size: size)
         let sorted = detections
-            .filter { $0.confidence >= minimumConfidence }
+            .filter { $0.confidence >= minimumConfidence && bounds.contains($0.center) }
             .sorted { $0.frame.midX < $1.frame.midX }
-        guard let first = sorted.first, let last = sorted.last, first.id != last.id else {
-            return nil
-        }
-        return (first.center, last.center)
+        guard sorted.count >= 2 else { return nil }
+
+        let closestPair = zip(sorted, sorted.dropFirst())
+            .min { abs($0.1.center.x - $0.0.center.x) < abs($1.1.center.x - $1.0.center.x) }
+        guard let closestPair else { return nil }
+
+        return (closestPair.0.center, closestPair.1.center)
     }
 }
 
