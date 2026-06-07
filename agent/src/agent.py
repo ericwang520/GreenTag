@@ -32,6 +32,7 @@ from events import (
     make_events_app,
     requirement_from_chunks,
 )
+from text_filters import strip_think_stream
 
 logger = logging.getLogger("agent")
 
@@ -182,14 +183,11 @@ class Assistant(Agent):
                 base_url="https://api.minimax.io/v1",
                 api_key=os.getenv("MINIMAX_API_KEY"),
                 # M3 is a reasoning model: it emits chain-of-thought inside a
-                # <think>...</think> block in the CONTENT channel. The SDK strips
-                # that block, but only on text-only deltas — when the closing
-                # </think> arrives in the same chunk as a tool call, the reasoning
-                # tail leaks into the spoken reply (TTS reads "the user is asking
-                # about…", and "<"/">" as "less/greater"). Disabling thinking
-                # removes the block entirely and cuts latency — both wins for a
-                # real-time voice agent. MiniMax-specific; passed via extra_body.
-                extra_body={"thinking": {"type": "disabled"}},
+                # <think>...</think> block in the content channel. The SDK strips
+                # that on text-only deltas, but the reasoning tail leaks into the
+                # spoken reply when </think> shares a chunk with a tool call. We
+                # KEEP thinking on (it improves code judgments) and strip the
+                # block at the TTS boundary instead — see tts_node below.
             ),
             # To use a realtime model instead of a voice pipeline, replace the LLM
             # with a RealtimeModel and remove the STT/TTS from the AgentSession
@@ -236,6 +234,18 @@ class Assistant(Agent):
                 """
             ),
         )
+
+    async def tts_node(self, text, model_settings):
+        """Strip MiniMax-M3 reasoning before it's spoken.
+
+        Removes any <think>...</think> spans from the text stream before
+        synthesis, so the model's chain-of-thought never reaches the speaker
+        even when it leaks past the SDK's own stripping around tool calls.
+        """
+        async for frame in Agent.default.tts_node(
+            self, strip_think_stream(text), model_settings
+        ):
+            yield frame
 
     @function_tool
     async def lookup_building_code(
