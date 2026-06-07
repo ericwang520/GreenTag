@@ -12,7 +12,7 @@ final class AppModel {
 
     /// Backend base URL hosting `/connection-details` (the LiveKit token + agent
     /// dispatch). On a device, point this at the Mac's LAN address.
-    var backendBaseURL = "http://127.0.0.1:8000"
+    var backendBaseURL = "https://greentag-backend-production.up.railway.app"
 
     private var observationCounter = 1
 
