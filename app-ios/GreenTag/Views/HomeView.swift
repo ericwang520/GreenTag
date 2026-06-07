@@ -5,7 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AppModel.self) private var appModel
 
-    @State private var isInspecting = true
+    @State private var isInspecting = false
     @State private var selectedRecord: InspectionRecord?
 
     var body: some View {
