@@ -75,13 +75,14 @@ struct ARInspectionView: UIViewRepresentable {
         private var candidatePair: MeasurementPair?
         private var candidatePairConfirmationCount = 0
         private var confirmedPair: MeasurementPair?
+        private var lockedMeasurement: (spacingIn: Double, confidence: Double)?
         private var lastDetectionTime: CFTimeInterval = 0
         private var lastDetectionTransform: simd_float4x4?
         private let requiredPairConfirmations = 2
         private let pairStabilityTolerance: CGFloat = 60
         private let minimumDetectionInterval: CFTimeInterval = 1.2
-        private let cameraTranslationThreshold: Float = 0.025
-        private let cameraRotationThreshold: Float = 0.04
+        private let cameraTranslationThreshold: Float = 0.08
+        private let cameraRotationThreshold: Float = 0.09
 
         init(
             roboflowAPIKey: String,
@@ -145,6 +146,11 @@ struct ARInspectionView: UIViewRepresentable {
                 return
             }
 
+            if let lockedMeasurement {
+                onMeasurementUpdated(lockedMeasurement.spacingIn, lockedMeasurement.confidence)
+                return
+            }
+
             guard let left = worldPoint(at: pair.left, in: arView),
                   let right = worldPoint(at: pair.right, in: arView) else {
                 onMeasurementUpdated(0, 0)
@@ -154,6 +160,7 @@ struct ARInspectionView: UIViewRepresentable {
             let distanceMeters = simd_distance(left, right)
             let distanceInches = Double(distanceMeters) * 39.3701
             let clampedDistance = min(max(distanceInches, 0), 96)
+            lockedMeasurement = (clampedDistance, pair.confidence)
             onMeasurementUpdated(clampedDistance, pair.confidence)
         }
 
@@ -385,10 +392,14 @@ struct ARInspectionView: UIViewRepresentable {
                 candidatePair = pair
                 candidatePairConfirmationCount = 1
                 confirmedPair = nil
+                lockedMeasurement = nil
                 onMeasurementUpdated(0, 0)
             }
 
             if candidatePairConfirmationCount >= requiredPairConfirmations {
+                if confirmedPair == nil {
+                    lockedMeasurement = nil
+                }
                 confirmedPair = pair
             }
         }
@@ -397,6 +408,7 @@ struct ARInspectionView: UIViewRepresentable {
             candidatePair = nil
             candidatePairConfirmationCount = 0
             confirmedPair = nil
+            lockedMeasurement = nil
         }
 
         private func isSimilar(_ lhs: MeasurementPair, to rhs: MeasurementPair) -> Bool {
