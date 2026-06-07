@@ -20,7 +20,6 @@ struct InspectionView: View {
     @State private var confidence = 0.0
     @State private var lumberDetections: [LumberDetection] = []
     @State private var measurementSegments: [LumberMeasurementSegment] = []
-    @State private var roboflowStatus = AppSecrets.roboflowAPIKey.isEmpty ? "Missing Roboflow key" : "Starting vision"
     @State private var minimumConfidence = RoboflowLumberDetectorConfiguration.defaultMinimumConfidence
     @State private var debugFrame: RoboflowDebugFrame?
 
@@ -29,7 +28,6 @@ struct InspectionView: View {
     @State private var isARSessionVisible = false
 
     @State private var showDebug = false
-    @State private var demoMode = false
     @State private var verdict: Verdict?
     @State private var inspectionChecks: [ObservationInspectionCheck] = []
 
@@ -47,10 +45,6 @@ struct InspectionView: View {
 
     private var spacingPreview: StudSpacingPreview {
         StudSpacingPreview(measuredInches: spacingIn)
-    }
-
-    private var showManualControls: Bool {
-        demoMode || !isARSessionVisible
     }
 
     private var connectionNote: String {
@@ -89,9 +83,6 @@ struct InspectionView: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 Spacer()
-                if showManualControls {
-                    manualControls
-                }
                 measurementBar
             }
             .padding(.horizontal, 16)
@@ -133,7 +124,7 @@ struct InspectionView: View {
                 },
                 onDetectionsUpdated: { lumberDetections = $0 },
                 onDebugFrameUpdated: { debugFrame = $0 },
-                onDetectorStatusUpdated: { roboflowStatus = $0 }
+                onDetectorStatusUpdated: { _ in }
             )
             .ignoresSafeArea()
 
@@ -176,15 +167,7 @@ struct InspectionView: View {
 
             Spacer()
 
-            Label(roboflowStatus, systemImage: "eye.fill")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(.black.opacity(0.55), in: Capsule())
-
             Menu {
-                Toggle("Demo mode (manual)", isOn: $demoMode)
                 Toggle("Show Roboflow view", isOn: $showDebug)
             } label: {
                 Image(systemName: "slider.horizontal.3")
@@ -255,45 +238,6 @@ struct InspectionView: View {
         .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
-    // MARK: Manual / demo controls
-
-    private var manualControls: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(isARSessionVisible ? "Demo mode" : "Manual measurement",
-                  systemImage: "hand.draw.fill")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white.opacity(0.8))
-
-            HStack {
-                Text("Spacing")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-                Slider(value: $spacingIn, in: 12...28, step: 0.25)
-                    .tint(Theme.accent)
-                Text(String(format: "%.2f in", spacingIn))
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .frame(width: 64, alignment: .trailing)
-            }
-
-            HStack {
-                Text("Confidence")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-                Slider(value: $confidence, in: 0.0...1.0, step: 0.01)
-                    .tint(Theme.accent)
-                Text("\(Int((confidence * 100).rounded()))%")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .frame(width: 64, alignment: .trailing)
-            }
-        }
-        .padding(14)
-        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 16))
-    }
-
     // MARK: Permission layer
 
     private var permissionLayer: some View {
@@ -319,16 +263,12 @@ struct InspectionView: View {
             .tint(Theme.accent)
             .disabled(isPreparingCamera || cameraAuthorizationStatus == .denied || cameraAuthorizationStatus == .restricted)
 
-            Text("No camera? Use Demo mode below to walk the flow.")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.45))
         }
         .padding(26)
         .frame(maxWidth: 340)
         .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(.white.opacity(0.14), lineWidth: 1))
         .padding(24)
-        .onAppear { demoMode = true }
     }
 
     // MARK: Verdict overlay
