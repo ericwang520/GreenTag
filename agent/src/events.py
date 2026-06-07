@@ -21,9 +21,12 @@ logger = logging.getLogger("agent.events")
 
 EVENT_TYPE = "field_observation.updated"
 
-# Below this measurement confidence, the agent should hedge ("possibly / please
-# rescan") rather than state a value flatly. See schema.md step 3.
-LOW_CONFIDENCE_THRESHOLD = 0.6
+# Single confidence gate for the whole agent (schema.md / CLAUDE.md: "if
+# measurement.confidence < 0.85, agent says re-aim, not a verdict"). Below this
+# the agent must hedge ("approximate / re-aim") rather than rule on the reading.
+# One constant on purpose so the proactive announcement and the conversational
+# get_current_reading tool agree — and so the iOS lock gate can match it.
+LOW_CONFIDENCE_THRESHOLD = 0.85
 
 # Slack allowed on a deterministic spacing comparison, in inches, to absorb
 # measurement noise. A reading of 16.3" against a 16" limit shouldn't fail.
@@ -108,6 +111,12 @@ class FieldObservation:
     confidence: float | None
     question_for_agent: str | None
     location: dict
+    # Whether this observation should trigger a proactive spoken announcement.
+    # iOS streams readings continuously to keep `latest_observation` fresh with
+    # announce=false (state only, silent); the explicit "lock & check" tap sends
+    # announce=true. Defaults true so the HTTP/curl/browser path and older
+    # payloads keep their announce-on-arrival behavior.
+    announce: bool = True
     raw: dict = field(default_factory=dict)
 
     @property
@@ -161,6 +170,12 @@ def parse_field_observation(payload: object) -> FieldObservation:
     if question is not None and not isinstance(question, str):
         raise ObservationError("question_for_agent must be a string")
 
+    # Silent state-only stream updates set announce=false; default true so the
+    # established announce-on-arrival behavior is unchanged when the key is absent.
+    announce = payload.get("announce", True)
+    if not isinstance(announce, bool):
+        raise ObservationError("announce must be a boolean")
+
     return FieldObservation(
         observation_id=observation_id,
         inspection_item=inspection_item,
@@ -168,6 +183,7 @@ def parse_field_observation(payload: object) -> FieldObservation:
         confidence=float(confidence) if confidence is not None else None,
         question_for_agent=question,
         location=location,
+        announce=announce,
         raw=payload,
     )
 
@@ -256,13 +272,69 @@ def build_announcement(
         "code reason. "
         f"{hedge}{verdict_directive} "
         "Make it sound like real speech: use contractions, say numbers as words "
-        "(\"sixteen and a quarter inches\", not \"sixteen point two five inches\"), "
-        "and read any code reference conversationally: say \"section six oh two\" "
+        '("sixteen and a quarter inches", not "sixteen point two five inches"), '
+        'and read any code reference conversationally: say "section six oh two" '
         "instead of reciting punctuation or parentheses. No lists, labels, raw "
-        "JSON, tool names, or filler like \"inspection item\". Keep it under "
+        'JSON, tool names, or filler like "inspection item". Keep it under '
         "about thirty words and end on the clear takeaway for the contractor."
     )
     return user_input, instructions
+
+
+def format_current_reading(obs: FieldObservation | None) -> str:
+    """Render the latest reading for the `get_current_reading` conversational tool.
+
+    This is the on-demand counterpart to `build_announcement`: when the contractor
+    asks "is this one ok?", the tool returns this so the LLM judges from the real
+    live measurement instead of guessing. Kept here (not in agent.py) so it stays
+    unit-testable without a running session. Like the announcement path, it never
+    states a code standard — it only reports the measured facts and flags low
+    confidence; the agent still calls the code lookup for the requirement.
+    """
+    if obs is None:
+        return (
+            "No measurement has come in from the camera yet. Ask the contractor to "
+            "aim at the wall and hold steady until a reading locks."
+        )
+
+    parts: list[str] = []
+    if obs.spacing_in is not None:
+        parts.append(f"measured spacing is {obs.spacing_in} inches, center to center")
+    if obs.confidence is not None:
+        parts.append(f"measurement confidence is {obs.confidence:.0%}")
+    city = (obs.location or {}).get("city")
+    if city:
+        parts.append(f"the job site is in {city}")
+    body = "; ".join(parts) if parts else "a reading is in but carries no spacing value"
+
+    if obs.low_confidence:
+        return (
+            f"The current {body}. Confidence is LOW — tell the contractor the reading "
+            "is approximate and to re-aim and hold steady before trusting it; do not "
+            "give a pass or fail yet."
+        )
+    return f"The current {body}."
+
+
+class ObservationStore:
+    """Holds the most recent field observation for on-demand conversation.
+
+    The proactive announcement path consumes each observation as it arrives; this
+    store keeps the *latest* one alive so the `get_current_reading` tool can answer
+    "is this one ok?" at any time. Per CLAUDE.md the agent "keeps the latest one as
+    latest_observation" — this is that. Updated on every valid observation (even a
+    deduped re-send), so what the agent can look up never goes stale.
+    """
+
+    def __init__(self) -> None:
+        self._latest: FieldObservation | None = None
+
+    def update(self, obs: FieldObservation) -> None:
+        self._latest = obs
+
+    @property
+    def latest(self) -> FieldObservation | None:
+        return self._latest
 
 
 # Callback the HTTP layer invokes to make the agent speak. Wired to the live
@@ -271,15 +343,30 @@ SpeakFn = Callable[[FieldObservation], Awaitable[None]]
 
 
 class EventDispatcher:
-    """Dedups observations by id and drives the agent's proactive speech."""
+    """Dedups observations by id and drives the agent's proactive speech.
 
-    def __init__(self, speak: SpeakFn) -> None:
+    Also refreshes the optional `store` with every valid observation so the
+    conversational `get_current_reading` tool always sees the latest reading —
+    dedup only gates *speaking*, never *remembering*.
+    """
+
+    def __init__(self, speak: SpeakFn, store: ObservationStore | None = None) -> None:
         self._speak = speak
+        self._store = store
         self._seen: set[str] = set()
 
     async def dispatch(self, payload: object) -> dict:
         """Process one decoded payload. Raises ObservationError if unusable."""
         obs = parse_field_observation(payload)
+
+        # Remember the latest reading before any gate, so a re-sent id or a silent
+        # stream update still keeps the conversation's view current.
+        if self._store is not None:
+            self._store.update(obs)
+
+        # Silent stream update (iOS continuous readings): refresh state, stay quiet.
+        if not obs.announce:
+            return {"status": "stored", "observation_id": obs.observation_id}
 
         if obs.observation_id in self._seen:
             logger.info(

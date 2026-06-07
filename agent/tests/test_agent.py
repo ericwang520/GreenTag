@@ -5,10 +5,34 @@ from livekit.agents import AgentSession, inference, llm
 from livekit.agents.voice.run_result import mock_tools
 
 from agent import Assistant
+from events import ObservationStore, parse_field_observation
 
 
 def _judge_llm() -> llm.LLM:
     return inference.LLM(model="openai/gpt-4.1-mini")
+
+
+def _reading_store(
+    spacing_in: float = 15.25, confidence: float = 0.9
+) -> ObservationStore:
+    """A store pre-loaded with one camera reading, as the dispatcher would set it."""
+    store = ObservationStore()
+    store.update(
+        parse_field_observation(
+            {
+                "event": "field_observation.updated",
+                "observation_id": "obs_001",
+                "inspection_item": "wood_stud_spacing",
+                "location": {"city": "San Francisco", "state": "CA"},
+                "measurement": {
+                    "spacing_in": spacing_in,
+                    "confidence": confidence,
+                    "method": "center_to_center",
+                },
+            }
+        )
+    )
+    return store
 
 
 @pytest.mark.asyncio
@@ -133,6 +157,83 @@ async def test_calls_building_code_tool_for_code_question() -> None:
                     on center — the value returned by the lookup tool. Phrasing
                     is open; what matters is that the 16-inch value is conveyed
                     and the answer is not a refusal.
+                    """
+                ),
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_is_this_ok_pulls_reading_then_code() -> None:
+    """'Is this one ok?' must consult the live reading AND the code, not memory.
+
+    The contractor asks about the wall in front of them. The agent should call
+    get_current_reading (to learn the measured spacing) and lookup_building_code
+    (for the standard), then rule from those — never an invented number.
+    """
+
+    async def fake_lookup(context, question: str, city: str = "") -> str:
+        return (
+            "IRC R602.3(5): studs in load-bearing walls spaced max 16 inches on center."
+        )
+
+    async with (
+        _judge_llm() as judge_llm,
+        AgentSession() as session,
+    ):
+        await session.start(Assistant(store=_reading_store(spacing_in=15.25)))
+
+        # get_current_reading runs for real against the store; only the Moss-backed
+        # lookup is mocked (it needs the backend + creds + a built index).
+        with mock_tools(Assistant, {"lookup_building_code": fake_lookup}):
+            result = await session.run(user_input="Hey GreenTag, is this one okay?")
+
+        result.expect.contains_function_call(name="get_current_reading")
+        result.expect.contains_function_call(name="lookup_building_code")
+
+        await (
+            result.expect[-1]
+            .is_message(role="assistant")
+            .judge(
+                judge_llm,
+                intent=textwrap.dedent(
+                    """\
+                    Tells the contractor the spacing passes / is okay, grounded in
+                    the measured fifteen-and-a-quarter-inch reading being within the
+                    sixteen-inch on-center limit from the code lookup. Phrasing is
+                    open; what matters is a clear pass verdict tied to those values,
+                    not a refusal and not an invented standard.
+                    """
+                ),
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_low_confidence_reading_asks_to_reaim() -> None:
+    """A low-confidence reading must produce a re-aim, not a verdict."""
+    async with (
+        _judge_llm() as judge_llm,
+        AgentSession() as session,
+    ):
+        await session.start(
+            Assistant(store=_reading_store(spacing_in=15.25, confidence=0.4))
+        )
+
+        result = await session.run(user_input="Hey GreenTag, does this one pass?")
+
+        result.expect.contains_function_call(name="get_current_reading")
+
+        await (
+            result.expect[-1]
+            .is_message(role="assistant")
+            .judge(
+                judge_llm,
+                intent=textwrap.dedent(
+                    """\
+                    Does NOT give a pass/fail verdict. Instead tells the contractor
+                    the reading is low-confidence or approximate and asks them to
+                    re-aim / hold steady / rescan before ruling.
                     """
                 ),
             )
