@@ -16,7 +16,7 @@ from livekit.agents import (
     inference,
     room_io,
 )
-from livekit.plugins import ai_coustics, silero
+from livekit.plugins import ai_coustics, minimax, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from events import (
@@ -105,8 +105,14 @@ class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
             # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-            # See all available models at https://docs.livekit.io/agents/models/llm/
-            llm=inference.LLM(model="openai/gpt-5.2-chat-latest"),
+            # MiniMax M3 via its OpenAI-compatible endpoint. MiniMax is not on
+            # LiveKit Inference, so we use the openai plugin pointed at MiniMax's
+            # API with MINIMAX_API_KEY (see .env). https://platform.minimax.io/docs/api-reference/text-openai-api
+            llm=openai.LLM(
+                model="MiniMax-M3",
+                base_url="https://api.minimax.io/v1",
+                api_key=os.getenv("MINIMAX_API_KEY"),
+            ),
             # To use a realtime model instead of a voice pipeline, replace the LLM
             # with a RealtimeModel and remove the STT/TTS from the AgentSession
             # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/)
@@ -194,10 +200,10 @@ async def my_agent(ctx: JobContext):
         # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=inference.STT(model="deepgram/nova-3", language="multi"),
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
-        tts=inference.TTS(
-            model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
-        ),
+        # MiniMax Speech-02 via the official livekit-plugins-minimax plugin (reads
+        # MINIMAX_API_KEY from env). Use "speech-02-turbo" for lower latency.
+        # Voices: https://docs.livekit.io/agents/models/tts/plugins/minimax/
+        tts=minimax.TTS(model="speech-02-hd", voice="English_Explanatory_Man"),
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
         turn_detection=MultilingualModel(),
